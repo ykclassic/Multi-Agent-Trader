@@ -1,13 +1,27 @@
 # Multi-Agent Trader
 
-AI-powered multi-asset trading desk + research terminal + portfolio/risk operating system.
+Phase 1 establishes the production foundation for the crypto + forex trading desk.
 
-This repository is currently being initialized from the production architecture blueprint in `docs/architecture/`.
+## Stack
+- Next.js App Router on Vercel
+- Supabase Auth + PostgreSQL + Row Level Security
+- TypeScript
+- GitHub Actions CI
 
-## Scope
-- Crypto and forex only.
-- Research, backtesting, paper trading, and progressively controlled live execution.
-- LLMs reason and synthesize; deterministic quant/risk/policy systems calculate and constrain; execution services place and reconcile orders.
+## Local setup
+1. Copy `.env.example` to `.env.local`.
+2. Fill the Supabase URL and publishable key from the Supabase project Connect/API settings.
+3. Apply `supabase/migrations/20260925220000_phase1_foundation.sql` with the Supabase CLI or dashboard migration workflow.
+4. Install dependencies and run `npm run dev`.
 
-## Architecture
-See `docs/architecture/00-system-architecture.md` for the canonical architecture and `docs/architecture/ROADMAP.md` for the eight implementation phases.
+No service-role key belongs in the browser or `.env.example`.
+
+## Phase 1 exit criteria
+- Authenticated workspace/domain model with RLS.
+- Crypto/forex-only asset, instrument and venue registry.
+- Versioned strategy model.
+- Initial dashboard.
+- Repeatable SQL migration.
+- CI validates typecheck, lint and production build.
+
+Live order execution is deliberately disabled in Phase 1.
