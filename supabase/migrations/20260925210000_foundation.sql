@@ -14,13 +14,24 @@ create index workspace_members_user_idx on public.workspace_members(user_id);
 create index strategy_versions_strategy_idx on public.strategy_versions(strategy_id);
 create index instruments_symbol_idx on public.instruments(symbol);
 alter table public.workspaces enable row level security;alter table public.workspace_members enable row level security;alter table public.strategies enable row level security;alter table public.strategy_versions enable row level security;alter table public.assets enable row level security;alter table public.venues enable row level security;alter table public.instruments enable row level security;
-create policy "members can read their workspaces" on public.workspaces for select to authenticated using(exists(select 1 from public.workspace_members wm where wm.workspace_id=id and wm.user_id=(select auth.uid())));
-create policy "members can read memberships" on public.workspace_members for select to authenticated using(user_id=(select auth.uid()) or exists(select 1 from public.workspace_members m where m.workspace_id=workspace_id and m.user_id=(select auth.uid())));
-create policy "members can read strategies" on public.strategies for select to authenticated using(exists(select 1 from public.workspace_members wm where wm.workspace_id=strategies.workspace_id and wm.user_id=(select auth.uid())));
-create policy "workspace editors can create strategies" on public.strategies for insert to authenticated with check(exists(select 1 from public.workspace_members wm where wm.workspace_id=strategies.workspace_id and wm.user_id=(select auth.uid()) and wm.role in ('OWNER','ADMIN','TRADER','RESEARCHER')));
-create policy "workspace editors can update strategies" on public.strategies for update to authenticated using(exists(select 1 from public.workspace_members wm where wm.workspace_id=strategies.workspace_id and wm.user_id=(select auth.uid()) and wm.role in ('OWNER','ADMIN','TRADER','RESEARCHER'))) with check(exists(select 1 from public.workspace_members wm where wm.workspace_id=strategies.workspace_id and wm.user_id=(select auth.uid()) and wm.role in ('OWNER','ADMIN','TRADER','RESEARCHER')));
-create policy "members can read strategy versions" on public.strategy_versions for select to authenticated using(exists(select 1 from public.strategies s join public.workspace_members wm on wm.workspace_id=s.workspace_id where s.id=strategy_versions.strategy_id and wm.user_id=(select auth.uid())));
-create policy "workspace editors can create versions" on public.strategy_versions for insert to authenticated with check(exists(select 1 from public.strategies s join public.workspace_members wm on wm.workspace_id=s.workspace_id where s.id=strategy_versions.strategy_id and wm.user_id=(select auth.uid()) and wm.role in ('OWNER','ADMIN','TRADER','RESEARCHER')));
+create schema if not exists private;
+create or replace function private.is_workspace_member(target_workspace uuid)
+returns boolean language sql stable security definer set search_path=''
+as $ select exists(select 1 from public.workspace_members wm where wm.workspace_id=target_workspace and wm.user_id=(select auth.uid())) $;
+create or replace function private.is_workspace_editor(target_workspace uuid)
+returns boolean language sql stable security definer set search_path=''
+as $ select exists(select 1 from public.workspace_members wm where wm.workspace_id=target_workspace and wm.user_id=(select auth.uid()) and wm.role in ('OWNER','ADMIN','TRADER','RESEARCHER')) $;
+revoke execute on function private.is_workspace_member(uuid) from public,anon;
+revoke execute on function private.is_workspace_editor(uuid) from public,anon;
+grant usage on schema private to authenticated;
+grant execute on function private.is_workspace_member(uuid), private.is_workspace_editor(uuid) to authenticated;
+create policy "members can read their workspaces" on public.workspaces for select to authenticated using((select private.is_workspace_member(id)));
+create policy "members can read memberships" on public.workspace_members for select to authenticated using(user_id=(select auth.uid()) or (select private.is_workspace_member(workspace_id)));
+create policy "members can read strategies" on public.strategies for select to authenticated using((select private.is_workspace_member(workspace_id)));
+create policy "workspace editors can create strategies" on public.strategies for insert to authenticated with check((select private.is_workspace_editor(workspace_id)));
+create policy "workspace editors can update strategies" on public.strategies for update to authenticated using((select private.is_workspace_editor(workspace_id))) with check((select private.is_workspace_editor(workspace_id)));
+create policy "members can read strategy versions" on public.strategy_versions for select to authenticated using(exists(select 1 from public.strategies s where s.id=strategy_versions.strategy_id and (select private.is_workspace_member(s.workspace_id))));
+create policy "workspace editors can create versions" on public.strategy_versions for insert to authenticated with check(exists(select 1 from public.strategies s where s.id=strategy_versions.strategy_id and (select private.is_workspace_editor(s.workspace_id))));
 create policy "authenticated can read registry" on public.assets for select to authenticated using(true);
 create policy "authenticated can read venues" on public.venues for select to authenticated using(true);
 create policy "authenticated can read instruments" on public.instruments for select to authenticated using(true);
