@@ -2,12 +2,32 @@
 
 AI-powered multi-asset trading desk + research terminal + portfolio/risk operating system.
 
-This repository is currently being initialized from the production architecture blueprint in `docs/architecture/`.
+## Phase 1 — Foundation
+
+This branch establishes the production control-plane foundation defined by the architecture blueprint:
+
+- Next.js App Router / Vercel application shell.
+- Supabase Auth with server-side session handling.
+- PostgreSQL domain model with RLS.
+- Automatic workspace creation at signup.
+- Versioned strategy registry and lifecycle.
+- Crypto + forex asset, venue and instrument registry.
+- Authenticated dashboard.
+- CI validation for typecheck, lint and build.
+
+### Local setup
+
+1. Create or connect a Supabase project.
+2. Apply `supabase/migrations/20260925210000_foundation.sql`.
+3. Copy `.env.example` to `.env.local` and set the Supabase URL and publishable key.
+4. Run `npm install` then `npm run dev`.
+
+### Architecture invariant
+
+LLMs reason. Quant systems calculate. Policy systems constrain. Execution systems trade. Databases remember.
+
+Phase 1 intentionally contains no broker credentials, order execution, AI decision authority, or live trading path.
 
 ## Scope
-- Crypto and forex only.
-- Research, backtesting, paper trading, and progressively controlled live execution.
-- LLMs reason and synthesize; deterministic quant/risk/policy systems calculate and constrain; execution services place and reconcile orders.
 
-## Architecture
-See `docs/architecture/00-system-architecture.md` for the canonical architecture and `docs/architecture/ROADMAP.md` for the eight implementation phases.
+Crypto and forex only. Stocks are out of scope.
