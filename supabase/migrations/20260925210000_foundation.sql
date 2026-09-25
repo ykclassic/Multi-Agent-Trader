@@ -1,0 +1,44 @@
+create extension if not exists pgcrypto;
+create type public.strategy_status as enum ('DRAFT','BACKTESTED','PAPER','APPROVED','LIVE','SUSPENDED','RETIRED');
+create type public.workspace_role as enum ('OWNER','ADMIN','TRADER','RESEARCHER','VIEWER');
+create type public.instrument_type as enum ('spot','perpetual','future','forex');
+create table public.workspaces(id uuid primary key default gen_random_uuid(),name text not null,slug text not null unique,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table public.workspace_members(workspace_id uuid not null references public.workspaces(id) on delete cascade,user_id uuid not null references auth.users(id) on delete cascade,role public.workspace_role not null default 'VIEWER',created_at timestamptz not null default now(),primary key(workspace_id,user_id));
+create table public.strategies(id uuid primary key default gen_random_uuid(),workspace_id uuid not null references public.workspaces(id) on delete cascade,name text not null,status public.strategy_status not null default 'DRAFT',created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table public.strategy_versions(id uuid primary key default gen_random_uuid(),strategy_id uuid not null references public.strategies(id) on delete cascade,version integer not null check(version>0),config jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),unique(strategy_id,version));
+create table public.assets(id uuid primary key default gen_random_uuid(),symbol text not null unique,name text not null,asset_class text not null check(asset_class in ('crypto','forex')),created_at timestamptz not null default now());
+create table public.venues(id uuid primary key default gen_random_uuid(),code text not null unique,name text not null,venue_type text not null check(venue_type in ('exchange','broker')),asset_class text not null check(asset_class in ('crypto','forex')),is_enabled boolean not null default true,created_at timestamptz not null default now());
+create table public.instruments(id uuid primary key default gen_random_uuid(),venue_id uuid not null references public.venues(id),symbol text not null,instrument_type public.instrument_type not null,base_asset_id uuid references public.assets(id),quote_asset_id uuid references public.assets(id),is_enabled boolean not null default true,metadata jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),unique(venue_id,symbol,instrument_type));
+create index strategies_workspace_idx on public.strategies(workspace_id);
+create index workspace_members_user_idx on public.workspace_members(user_id);
+create index strategy_versions_strategy_idx on public.strategy_versions(strategy_id);
+create index instruments_symbol_idx on public.instruments(symbol);
+alter table public.workspaces enable row level security;alter table public.workspace_members enable row level security;alter table public.strategies enable row level security;alter table public.strategy_versions enable row level security;alter table public.assets enable row level security;alter table public.venues enable row level security;alter table public.instruments enable row level security;
+create schema if not exists private;
+create or replace function private.is_workspace_member(target_workspace uuid)
+returns boolean language sql stable security definer set search_path=''
+as $ select exists(select 1 from public.workspace_members wm where wm.workspace_id=target_workspace and wm.user_id=(select auth.uid())) $;
+create or replace function private.is_workspace_editor(target_workspace uuid)
+returns boolean language sql stable security definer set search_path=''
+as $ select exists(select 1 from public.workspace_members wm where wm.workspace_id=target_workspace and wm.user_id=(select auth.uid()) and wm.role in ('OWNER','ADMIN','TRADER','RESEARCHER')) $;
+revoke execute on function private.is_workspace_member(uuid) from public,anon;
+revoke execute on function private.is_workspace_editor(uuid) from public,anon;
+grant usage on schema private to authenticated;
+grant execute on function private.is_workspace_member(uuid), private.is_workspace_editor(uuid) to authenticated;
+create policy "members can read their workspaces" on public.workspaces for select to authenticated using((select private.is_workspace_member(id)));
+create policy "members can read memberships" on public.workspace_members for select to authenticated using(user_id=(select auth.uid()) or (select private.is_workspace_member(workspace_id)));
+create policy "members can read strategies" on public.strategies for select to authenticated using((select private.is_workspace_member(workspace_id)));
+create policy "workspace editors can create strategies" on public.strategies for insert to authenticated with check((select private.is_workspace_editor(workspace_id)));
+create policy "workspace editors can update strategies" on public.strategies for update to authenticated using((select private.is_workspace_editor(workspace_id))) with check((select private.is_workspace_editor(workspace_id)));
+create policy "members can read strategy versions" on public.strategy_versions for select to authenticated using(exists(select 1 from public.strategies s where s.id=strategy_versions.strategy_id and (select private.is_workspace_member(s.workspace_id))));
+create policy "workspace editors can create versions" on public.strategy_versions for insert to authenticated with check(exists(select 1 from public.strategies s where s.id=strategy_versions.strategy_id and (select private.is_workspace_editor(s.workspace_id))));
+create policy "authenticated can read registry" on public.assets for select to authenticated using(true);
+create policy "authenticated can read venues" on public.venues for select to authenticated using(true);
+create policy "authenticated can read instruments" on public.instruments for select to authenticated using(true);
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$ declare new_workspace uuid; begin insert into public.workspaces(name,slug) values('My Workspace','workspace-'||replace(new.id::text,'-','')) returning id into new_workspace; insert into public.workspace_members(workspace_id,user_id,role) values(new_workspace,new.id,'OWNER'); return new; end; $$;
+revoke all on function public.handle_new_user() from public;
+create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+insert into public.assets(symbol,name,asset_class) values('BTC','Bitcoin','crypto'),('ETH','Ethereum','crypto'),('USD','US Dollar','forex'),('EUR','Euro','forex'),('GBP','British Pound','forex') on conflict(symbol) do nothing;
+insert into public.venues(code,name,venue_type,asset_class) values('binance','Binance','exchange','crypto'),('coinbase','Coinbase','exchange','crypto'),('oanda','OANDA','broker','forex') on conflict(code) do nothing;
+insert into public.instruments(venue_id,symbol,instrument_type,base_asset_id,quote_asset_id)
+select v.id,x.symbol,x.instrument_type::public.instrument_type,a1.id,a2.id from (values('binance','BTC/USD','spot','BTC','USD'),('binance','ETH/USD','spot','ETH','USD'),('binance','BTC/USD','perpetual','BTC','USD'),('coinbase','BTC/USD','spot','BTC','USD'),('coinbase','ETH/USD','spot','ETH','USD'),('oanda','EUR/USD','forex','EUR','USD'),('oanda','GBP/USD','forex','GBP','USD')) x(venue_code,symbol,instrument_type,base_symbol,quote_symbol) join public.venues v on v.code=x.venue_code join public.assets a1 on a1.symbol=x.base_symbol join public.assets a2 on a2.symbol=x.quote_symbol on conflict(venue_id,symbol,instrument_type) do nothing;
