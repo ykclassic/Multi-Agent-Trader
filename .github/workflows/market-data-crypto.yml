@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      SUPABASE_URL: \${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      INGEST_CRYPTO_SYMBOLS: \${{ vars.INGEST_CRYPTO_SYMBOLS || 'BTC/USDT,ETH/USDT' }}
-      INGEST_CRYPTO_VENUE: \${{ vars.INGEST_CRYPTO_VENUE || 'BINANCE' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      INGEST_CRYPTO_SYMBOLS: ${{ vars.INGEST_CRYPTO_SYMBOLS || 'BTC/USDT,ETH/USDT' }}
+      INGEST_CRYPTO_VENUE: ${{ vars.INGEST_CRYPTO_VENUE || 'BINANCE' }}
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v5
