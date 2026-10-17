@@ -1,0 +1,9 @@
+[project]
+name = "multi-agent-trader-quant"
+version = "0.1.0"
+description = "Deterministic market features and risk controls for Multi-Agent Trader"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.unittest]
+start-directory = "tests"
