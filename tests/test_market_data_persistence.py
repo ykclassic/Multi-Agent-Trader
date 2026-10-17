@@ -45,6 +45,24 @@ class CandlePersistenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("updated_at", rows[0])
         self.assertEqual(rows[0]["fetched_at"], rows[1]["fetched_at"])
 
+    async def test_numeric_int_and_float_values_share_revision_hash(self):
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        repository = RecordingRepository()
+        integer_values = Candle(now - timedelta(hours=1), 100, 102, 99, 101, 12)
+        float_values = Candle(now - timedelta(hours=1), 100.0, 102.0, 99.0, 101.0, 12.0)
+        await repository.upsert_candles(
+            instrument_id="instrument-id", source="test", timeframe_seconds=3600,
+            candles=[integer_values], quality_score=1,
+        )
+        await repository.upsert_candles(
+            instrument_id="instrument-id", source="test", timeframe_seconds=3600,
+            candles=[float_values], quality_score=1,
+        )
+        self.assertEqual(
+            repository.revisions[0][0]["content_hash"],
+            repository.revisions[1][0]["content_hash"],
+        )
+
     async def test_changed_candle_content_creates_distinct_revision_hash(self):
         now = datetime.now(timezone.utc).replace(microsecond=0)
         repository = RecordingRepository()
