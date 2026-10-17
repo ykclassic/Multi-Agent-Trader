@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createStrategy, createStrategyVersion } from "./actions";
+import { signOut } from "../auth/actions";
 
 export default async function StrategiesPage() {
   const supabase = await createSupabaseServerClient();
@@ -15,7 +16,12 @@ export default async function StrategiesPage() {
 
   return (
     <main className="container">
-      <nav><strong>Strategies</strong><a href="/dashboard">Dashboard</a></nav>
+      <nav style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <strong>Strategies</strong>
+        <a href="/dashboard">Dashboard</a>
+        <span className="muted" style={{ marginLeft: "auto" }}>{user.email}</span>
+        <form action={signOut}><button type="submit">Sign out</button></form>
+      </nav>
       <section>
         <h1>Strategy Registry</h1>
         <p className="muted">Declarative, versioned strategy contracts. Foundation mode does not execute orders.</p>
