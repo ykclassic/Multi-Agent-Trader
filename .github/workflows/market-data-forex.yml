@@ -1,0 +1,31 @@
+name: Scheduled Forex Market Data
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: market-data-forex
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: \${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TWELVEDATA_API_KEY: \${{ secrets.TWELVEDATA_API_KEY }}
+      INGEST_FOREX_SYMBOLS: \${{ vars.INGEST_FOREX_SYMBOLS || 'EUR/USD' }}
+      INGEST_FOREX_VENUE: \${{ vars.INGEST_FOREX_VENUE || 'OANDA' }}
+      FOREX_HOLIDAYS: \${{ vars.FOREX_HOLIDAYS || '' }}
+      FOREX_EARLY_CLOSES: \${{ vars.FOREX_EARLY_CLOSES || '' }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run quota-conscious forex ingestion
+        run: python -m scripts.market_data_worker --asset-class forex
