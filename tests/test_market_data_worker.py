@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
+import os
 import unittest
+from unittest.mock import patch
 
-from scripts.market_data_worker import PersistentProviderCircuitBreaker
+from scripts.market_data_worker import PersistentProviderCircuitBreaker, configured_forex_calendar
 
 
 class FakeCircuitBreaker(PersistentProviderCircuitBreaker):
@@ -28,6 +30,11 @@ class FakeCircuitBreaker(PersistentProviderCircuitBreaker):
 
 
 class MarketDataWorkerTests(unittest.TestCase):
+    def test_forex_worker_fails_closed_without_calendar_confirmation(self):
+        with patch.dict(os.environ, {"FOREX_CALENDAR_CONFIRMED": "false"}):
+            with self.assertRaisesRegex(RuntimeError, "FOREX_CALENDAR_CONFIRMED"):
+                configured_forex_calendar()
+
     def test_first_transient_failure_does_not_open_breaker(self):
         breaker = FakeCircuitBreaker()
         result = breaker.failure(RuntimeError("provider timeout"))
