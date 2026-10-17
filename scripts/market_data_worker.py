@@ -9,8 +9,7 @@ import argparse
 import asyncio
 import json
 import os
-from datetime import datetime, timedelta, timezone, date, time
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -21,7 +20,7 @@ from quant.market_engine.persistence import SupabaseRestCandleRepository
 from quant.market_engine.providers import (
     BinanceSpotProvider, MarketDataProviderError, TwelveDataForexProvider,
 )
-from quant.market_engine.sessions import ForexSessionCalendar
+from quant.market_engine.sessions import ForexSessionCalendar, load_forex_session_calendar
 from scripts.ingest_market_data import resolve_instrument_id
 
 
@@ -30,22 +29,7 @@ def utcnow() -> datetime:
 
 
 def configured_forex_calendar() -> ForexSessionCalendar:
-    if os.environ.get("FOREX_CALENDAR_CONFIRMED", "").lower() != "true":
-        raise RuntimeError("Set FOREX_CALENDAR_CONFIRMED=true only after maintaining the FX holiday calendar")
-    holidays = frozenset(
-        date.fromisoformat(item.strip())
-        for item in os.environ.get("FOREX_HOLIDAYS", "").split(",") if item.strip()
-    )
-    today_ny = utcnow().astimezone(ZoneInfo("America/New_York")).date()
-    next_year = today_ny + timedelta(days=365)
-    if not any(today_ny <= holiday <= next_year for holiday in holidays):
-        raise RuntimeError("FOREX_HOLIDAYS must include maintained full-day closures within the next 365 days")
-    early_closes: dict[date, time] = {}
-    for item in os.environ.get("FOREX_EARLY_CLOSES", "").split(","):
-        if item.strip():
-            day_text, time_text = item.strip().split("T", 1)
-            early_closes[date.fromisoformat(day_text)] = time.fromisoformat(time_text)
-    return ForexSessionCalendar(holidays=holidays, early_closes=early_closes)
+    return load_forex_session_calendar(require_confirmed=True)
 
 
 class PersistentProviderCircuitBreaker:
