@@ -97,7 +97,7 @@ class SupabaseRestCandleRepository(CandleRepository):
             if previous is not None and timestamp <= previous:
                 raise ValueError("Candles must be strictly ordered with no duplicates")
             previous = timestamp
-            fingerprint_payload = json.dumps([candle.open, candle.high, candle.low, candle.close, candle.volume], separators=(",", ":"), allow_nan=False)
+            fingerprint_payload = json.dumps([round(float(value), 12) for value in (candle.open, candle.high, candle.low, candle.close, candle.volume)], separators=(",", ":"), allow_nan=False)
             content_hash = hashlib.sha256(fingerprint_payload.encode("utf-8")).hexdigest()
             revisions.append({
                 "instrument_id": instrument_id, "source": source,
