@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   ingest:
+    if: ${{ vars.MARKET_DATA_INGESTION_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
