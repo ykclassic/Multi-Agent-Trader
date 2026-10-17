@@ -43,4 +43,4 @@ python -m scripts.ingest_market_data --asset-class crypto --symbol BTC/USDT --ti
 python -m scripts.ingest_market_data --asset-class forex --symbol EUR/USD --timeframe-seconds 3600 --limit 100 --venue OANDA
 ~~~
 
-The CLI resolves the exact active instrument ID from the registry and venue before fetching. It prints counts and quality metadata, not secrets. Use a supported timeframe for the chosen provider; for a symbol whose venue market differs from the registry label, pass an explicit crypto \`--provider-symbol\` (for example \`BTCUSDT\`) and treat the quote-currency mismatch carefully. This is a one-shot bounded run, not a scheduler.
+The CLI resolves the exact active instrument ID from the registry and venue before fetching. It prints counts and quality metadata, not secrets. Use a supported timeframe for the chosen provider; for a symbol whose venue market differs from the registry label, pass an explicit crypto --provider-symbol (for example BTCUSDT) and treat the quote-currency mismatch carefully. This is a one-shot bounded run, not a scheduler.
