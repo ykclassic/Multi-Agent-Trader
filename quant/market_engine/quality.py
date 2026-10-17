@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import math
 from typing import Sequence
 
 from .engine import Candle
@@ -73,11 +72,6 @@ def score_candle_batch(
     if is_stale:
         issues.append("stale_latest_candle")
     completeness = len(candles) / (len(candles) + missing)
-    freshness = (
-        1.0 if age_seconds == 0 else 0.0
-        if max_age_seconds == 0
-        else max(0.0, 1.0 - age_seconds / max_age_seconds)
-    )
     # Explicit branches avoid division-by-zero and keep the score bounded.
     if max_age_seconds == 0:
         freshness = 1.0 if age_seconds == 0 else 0.0
