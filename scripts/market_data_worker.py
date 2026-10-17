@@ -143,42 +143,41 @@ async def run(asset_class: str) -> int:
         supabase_url=supabase_url, service_role_key=service_role_key,
         provider=provider.source_id,
     )
-    state = breaker.ensure_closed()
+    breaker.ensure_closed()
     completed = []
-    try:
-        for symbol in symbols:
-            instrument_id = resolve_instrument_id(
-                supabase_url=supabase_url, service_role_key=service_role_key,
-                symbol=symbol, venue_code=venue,
-            )
-            end_at = utcnow()
-            request = MarketDataRequest(
-                symbol=symbol, timeframe_seconds=timeframe,
-                start_at=end_at - lookback, end_at=end_at,
-                limit=min(5000, int(lookback.total_seconds() // timeframe) + 2),
-            )
+    for symbol in symbols:
+        instrument_id = resolve_instrument_id(
+            supabase_url=supabase_url, service_role_key=service_role_key,
+            symbol=symbol, venue_code=venue,
+        )
+        end_at = utcnow()
+        request = MarketDataRequest(
+            symbol=symbol, timeframe_seconds=timeframe,
+            start_at=end_at - lookback, end_at=end_at,
+            limit=min(5000, int(lookback.total_seconds() // timeframe) + 2),
+        )
+        try:
             result = await ingest_candles(
                 provider=provider, request=request, instrument_id=instrument_id,
                 repository=repository, market_type=asset_class,
                 forex_calendar=configured_forex_calendar() if asset_class == "forex" else None,
             )
-            completed.append({
+        except MarketDataProviderError as exc:
+            state = breaker.failure(exc)
+            print(json.dumps({
+                "provider": provider.source_id, "asset_class": asset_class,
+                "completed": completed, "status": "provider_failure",
+                "circuit_breaker": state, "error": str(exc)[:240],
+            }, indent=2))
+            return 1
+        completed.append({
                 "symbol": symbol, "fetched_count": result.fetched_count,
                 "persisted_count": result.persisted_count,
                 "quality_score": result.quality.overall_quality_score,
                 "missing_candle_count": result.quality.missing_candle_count,
                 "quality_issues": list(result.quality.issues),
-            })
-            breaker.success()
-    except Exception as exc:
-        state = breaker.failure(exc)
-        print(json.dumps({
-            "provider": provider.source_id, "asset_class": asset_class,
-            "completed": completed, "status": "provider_failure",
-            "circuit_breaker": state,
-            "error": str(exc)[:240],
-        }, indent=2))
-        return 1
+        })
+    breaker.success()
 
     print(json.dumps({
         "provider": provider.source_id, "asset_class": asset_class,
