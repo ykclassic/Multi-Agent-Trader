@@ -21,7 +21,7 @@ begin
 end;
 $$;
 
-revoke all on function public.handle_new_user() from public;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 
 do $$
 begin
