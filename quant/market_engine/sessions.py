@@ -36,3 +36,25 @@ class ForexSessionCalendar:
         if day in self.early_closes:
             return local.timetz().replace(tzinfo=None) < self.early_closes[day]
         return True
+    def trading_seconds_between(self, start: datetime, end: datetime) -> float:
+        """Return elapsed wall-clock seconds that fall inside expected FX sessions.
+
+        Fifteen-minute sampling is used only for age/freshness metadata; candle-gap
+        counting itself evaluates each expected candle timestamp exactly.
+        """
+        if start.tzinfo is None or start.utcoffset() is None or end.tzinfo is None or end.utcoffset() is None:
+            raise ValueError("Session timestamps must be timezone-aware")
+        if end <= start:
+            return 0.0
+        from datetime import timedelta
+        cursor = start
+        elapsed = 0.0
+        step = timedelta(minutes=15)
+        while cursor < end:
+            next_cursor = min(cursor + step, end)
+            midpoint = cursor + (next_cursor - cursor) / 2
+            if self.is_open(midpoint):
+                elapsed += (next_cursor - cursor).total_seconds()
+            cursor = next_cursor
+        return elapsed
+
