@@ -93,7 +93,8 @@ class SupabaseRestCandleRepository(CandleRepository):
                 "timeframe_seconds": timeframe_seconds, "candle_at": timestamp.isoformat(),
                 "open": candle.open, "high": candle.high, "low": candle.low,
                 "close": candle.close, "volume": candle.volume,
-                "fetched_at": fetched_at, "source_timestamp": timestamp.isoformat(),
+                "fetched_at": fetched_at, "updated_at": fetched_at,
+                "source_timestamp": timestamp.isoformat(),
                 "source_revision": None, "quality_score": round(quality_score, 4),
                 "data_version": 1, "is_closed": True,
             })
