@@ -8,7 +8,7 @@
 - JsonHttpClient bounds concurrency, spaces requests, applies timeouts and retries 429/5xx/network errors with capped exponential backoff, and sanitizes upstream failures.
 - The provider contract remains read-only. Neither adapter creates signals, accesses LLMs, nor submits orders.
 
-The existing registry labels BTC/USD and ETH/USD on Binance, while Binance spot instruments are USDT-quoted. The adapter explicitly maps these labels to BTCUSDT/ETHUSDT for development; this is a USDT-market proxy and must not be presented as an exact USD quote. Production venue/instrument records should use provider-accurate symbols before strategy or accounting use.
+The current registry uses BTC/USDT and ETH/USDT on the BINANCE venue, plus BTC-USD on COINBASE. The adapter accepts the registry symbols directly; it also supports BTC/USD and ETH/USD aliases mapped to BTCUSDT/ETHUSDT, but those aliases are USDT-market proxies and are not exact USD quotes. Venue codes are stored uppercase (BINANCE, OANDA, FXCM).
 
 Twelve Data is a third-party forex data source, not the OANDA execution/pricing API. EUR/USD, GBP/USD, and other supported pairs are requested by symbol. Forex spot feeds generally do not have centralized traded volume, so missing volume is represented as zero/unavailable rather than invented.
 
@@ -34,13 +34,13 @@ This increment provides adapters and a callable ingestion pipeline. It does not 
 
 From the repository root, in a trusted environment with the server-side variables set:
 
-\`\`\`bash
+~~~bash
 export SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVER_ONLY_SERVICE_ROLE_KEY"
 export TWELVEDATA_API_KEY="YOUR_TWELVE_DATA_KEY" # forex only
 
-python -m scripts.ingest_market_data --asset-class crypto --symbol BTC/USD --timeframe-seconds 3600 --limit 100
-python -m scripts.ingest_market_data --asset-class forex --symbol EUR/USD --timeframe-seconds 3600 --limit 100
-\`\`\`
+python -m scripts.ingest_market_data --asset-class crypto --symbol BTC/USDT --timeframe-seconds 3600 --limit 100 --venue BINANCE
+python -m scripts.ingest_market_data --asset-class forex --symbol EUR/USD --timeframe-seconds 3600 --limit 100 --venue OANDA
+~~~
 
 The CLI resolves the exact active instrument ID from the registry and venue before fetching. It prints counts and quality metadata, not secrets. Use a supported timeframe for the chosen provider; for a symbol whose venue market differs from the registry label, pass an explicit crypto \`--provider-symbol\` (for example \`BTCUSDT\`) and treat the quote-currency mismatch carefully. This is a one-shot bounded run, not a scheduler.
