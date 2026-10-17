@@ -12,9 +12,10 @@
 ForexSessionCalendar uses New York local sessions (Sunday 17:00 through Friday 17:00), so DST shifts are handled by zoneinfo. Weekend closure timestamps are not counted as missing candles. Forex freshness age is also measured in open-session time, not raw wall-clock time. A genuine missing candle during an open session still reduces completeness.
 
 FX holiday and early-close schedules vary by provider and market. Configure repository Actions variables:
-- FOREX_HOLIDAYS: comma-separated New York market dates, YYYY-MM-DD (full-day closures).
+- FOREX_CALENDAR_CONFIRMED: set to true only after the maintained holiday schedule is configured.
+- FOREX_HOLIDAYS: comma-separated New York market dates, YYYY-MM-DD (full-day closures); must include at least one future full-day closure within the next 365 days.
 - FOREX_EARLY_CLOSES: comma-separated YYYY-MM-DDTHH:MM values in New York local time.
-Do not assume one universal holiday calendar covers every provider. Validate these values against the selected feed's documented trading schedule.
+Do not assume one universal holiday calendar covers every provider. Validate these values against the selected feed's documented trading schedule. The scheduled worker fails closed until FOREX_CALENDAR_CONFIRMED=true and a future holiday date is present, so an unconfigured calendar cannot silently score weekday holidays as missing data.
 
 ## Canonical candles and immutable revisions
 
@@ -40,7 +41,7 @@ Configure these repository secrets before enabling the workflows:
 Optional repository Actions variables:
 - INGEST_CRYPTO_SYMBOLS, INGEST_CRYPTO_VENUE
 - INGEST_FOREX_SYMBOLS, INGEST_FOREX_VENUE
-- FOREX_HOLIDAYS, FOREX_EARLY_CLOSES
+- FOREX_CALENDAR_CONFIRMED, FOREX_HOLIDAYS, FOREX_EARLY_CLOSES
 
 The workflow uses the existing registry and fails closed if the symbol/venue pair does not resolve to exactly one active instrument. Scheduled workflows start only from the default branch, so merge these changes before expecting scheduled runs.
 
