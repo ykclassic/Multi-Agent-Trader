@@ -35,7 +35,7 @@ class MarketDataQualityTests(unittest.TestCase):
             score_candle_batch(self.candles, source="test-feed", as_of=self.now - timedelta(minutes=1))
         with self.assertRaisesRegex(ValueError, "strictly ordered"):
             score_candle_batch([self.candles[0], self.candles[2], self.candles[1]], source="test-feed", as_of=self.now)
-        with self.assertRaisesRegex(ValueError, "at least one"):
+        with self.assertRaisesRegex(ValueError, "(?i)at least one"):
             score_candle_batch([], source="test-feed", as_of=self.now)
 
     def test_requires_source_and_timezone(self):
