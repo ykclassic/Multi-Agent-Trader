@@ -61,10 +61,10 @@ class MarketDataQualityTests(unittest.TestCase):
 
     def test_forex_configured_holiday_is_excluded(self):
         holiday = date(2026, 1, 12)
-        previous = Candle(datetime(2026, 1, 9, 21, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
-        after_holiday = Candle(datetime(2026, 1, 13, 22, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        previous = Candle(datetime(2026, 1, 12, 4, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        after_holiday = Candle(datetime(2026, 1, 13, 5, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
         result = score_candle_batch(
-            [previous, after_holiday], source="forex", as_of=datetime(2026, 1, 13, 23, 0, tzinfo=timezone.utc),
+            [previous, after_holiday], source="forex", as_of=datetime(2026, 1, 13, 6, 0, tzinfo=timezone.utc),
             timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
             forex_calendar=ForexSessionCalendar(holidays=frozenset({holiday})),
         )
