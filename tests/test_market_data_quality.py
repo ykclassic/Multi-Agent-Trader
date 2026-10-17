@@ -50,6 +50,20 @@ class MarketDataQualityTests(unittest.TestCase):
         self.assertEqual(result.missing_candle_count, 0)
         self.assertNotIn("missing_candles:1", result.issues)
 
+    def test_forex_session_open_tracks_new_york_dst(self):
+        calendar = ForexSessionCalendar()
+        before_open = datetime(2026, 3, 8, 20, 59, tzinfo=timezone.utc)
+        at_open = datetime(2026, 3, 8, 21, 0, tzinfo=timezone.utc)
+        self.assertFalse(calendar.is_open(before_open))
+        self.assertTrue(calendar.is_open(at_open))
+
+    def test_configured_early_close_is_respected(self):
+        calendar = ForexSessionCalendar(early_closes={date(2026, 12, 24): datetime.strptime("13:00", "%H:%M").time()})
+        before_close = datetime(2026, 12, 24, 17, 59, tzinfo=timezone.utc)  # 12:59 New York
+        at_close = datetime(2026, 12, 24, 18, 0, tzinfo=timezone.utc)  # 13:00 New York
+        self.assertTrue(calendar.is_open(before_close))
+        self.assertFalse(calendar.is_open(at_close))
+
     def test_forex_freshness_age_excludes_weekend_closure(self):
         friday_bar = Candle(datetime(2026, 1, 9, 21, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
         result = score_candle_batch(
