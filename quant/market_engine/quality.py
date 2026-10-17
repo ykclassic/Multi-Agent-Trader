@@ -61,6 +61,8 @@ def score_candle_batch(
         raise ValueError("Latest candle is future-dated")
 
     calendar = forex_calendar or ForexSessionCalendar()
+    if market_type == "forex":
+        age_seconds = calendar.trading_seconds_between(times[-1], current_time)
     issues: list[str] = []
     missing = 0
     for previous, current in zip(times, times[1:]):
