@@ -11,7 +11,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone, date
+from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -20,7 +20,7 @@ from quant.market_engine.contracts import MarketDataRequest
 from quant.market_engine.ingestion import ingest_candles
 from quant.market_engine.persistence import SupabaseRestCandleRepository
 from quant.market_engine.providers import BinanceSpotProvider, TwelveDataForexProvider
-from quant.market_engine.sessions import ForexSessionCalendar
+from quant.market_engine.sessions import load_forex_session_calendar
 
 
 def parse_datetime(value: str) -> datetime:
@@ -93,11 +93,11 @@ async def run(args: argparse.Namespace) -> int:
         start_at=start_at, end_at=end_at, limit=args.limit,
     )
     repository = SupabaseRestCandleRepository.from_env()
-    holidays = frozenset(date.fromisoformat(item.strip()) for item in os.environ.get("FOREX_HOLIDAYS", "").split(",") if item.strip())
+    forex_calendar = load_forex_session_calendar(require_confirmed=True) if args.asset_class == "forex" else None
     result = await ingest_candles(
         provider=provider, request=request, instrument_id=instrument_id, repository=repository,
         market_type=args.asset_class,
-        forex_calendar=ForexSessionCalendar(holidays=holidays) if args.asset_class == "forex" else None,
+        forex_calendar=forex_calendar,
     )
     print(json.dumps({
         "source": result.source,
