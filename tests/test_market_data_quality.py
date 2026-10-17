@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import unittest
 
 from quant.market_engine import Candle
 from quant.market_engine.quality import score_candle_batch
+from quant.market_engine.sessions import ForexSessionCalendar
 
 
 class MarketDataQualityTests(unittest.TestCase):
@@ -37,6 +38,37 @@ class MarketDataQualityTests(unittest.TestCase):
             score_candle_batch([self.candles[0], self.candles[2], self.candles[1]], source="test-feed", as_of=self.now)
         with self.assertRaisesRegex(ValueError, "(?i)at least one"):
             score_candle_batch([], source="test-feed", as_of=self.now)
+
+    def test_forex_weekend_is_excluded_from_gap_count(self):
+        # New York winter time: Friday 16:00 local is 21:00 UTC; Sunday 17:00 local is 22:00 UTC.
+        friday_close_bar = Candle(datetime(2026, 1, 9, 21, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        sunday_open_bar = Candle(datetime(2026, 1, 11, 22, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [friday_close_bar, sunday_open_bar], source="forex", as_of=datetime(2026, 1, 11, 23, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+        )
+        self.assertEqual(result.missing_candle_count, 0)
+        self.assertNotIn("missing_candles:1", result.issues)
+
+    def test_forex_missing_expected_session_bar_is_counted(self):
+        friday_early = Candle(datetime(2026, 1, 9, 20, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        sunday_open_bar = Candle(datetime(2026, 1, 11, 22, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [friday_early, sunday_open_bar], source="forex", as_of=datetime(2026, 1, 11, 23, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+        )
+        self.assertEqual(result.missing_candle_count, 1)
+
+    def test_forex_configured_holiday_is_excluded(self):
+        holiday = date(2026, 1, 12)
+        previous = Candle(datetime(2026, 1, 9, 21, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        after_holiday = Candle(datetime(2026, 1, 13, 22, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [previous, after_holiday], source="forex", as_of=datetime(2026, 1, 13, 23, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+            forex_calendar=ForexSessionCalendar(holidays=frozenset({holiday})),
+        )
+        self.assertEqual(result.missing_candle_count, 0)
 
     def test_requires_source_and_timezone(self):
         with self.assertRaisesRegex(ValueError, "source identifier"):
