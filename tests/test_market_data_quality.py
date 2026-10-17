@@ -50,6 +50,16 @@ class MarketDataQualityTests(unittest.TestCase):
         self.assertEqual(result.missing_candle_count, 0)
         self.assertNotIn("missing_candles:1", result.issues)
 
+    def test_forex_freshness_age_excludes_weekend_closure(self):
+        friday_bar = Candle(datetime(2026, 1, 9, 21, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [friday_bar], source="forex",
+            as_of=datetime(2026, 1, 11, 22, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+        )
+        self.assertEqual(result.age_seconds, 3600)
+        self.assertEqual(result.freshness_score, 0.5)
+
     def test_forex_missing_expected_session_bar_is_counted(self):
         friday_early = Candle(datetime(2026, 1, 9, 20, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
         sunday_open_bar = Candle(datetime(2026, 1, 11, 22, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
