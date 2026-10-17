@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SUPABASE_URL: \${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      TWELVEDATA_API_KEY: \${{ secrets.TWELVEDATA_API_KEY }}
-      INGEST_FOREX_SYMBOLS: \${{ vars.INGEST_FOREX_SYMBOLS || 'EUR/USD' }}
-      INGEST_FOREX_VENUE: \${{ vars.INGEST_FOREX_VENUE || 'OANDA' }}
-      FOREX_HOLIDAYS: \${{ vars.FOREX_HOLIDAYS || '' }}
-      FOREX_EARLY_CLOSES: \${{ vars.FOREX_EARLY_CLOSES || '' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+      INGEST_FOREX_SYMBOLS: ${{ vars.INGEST_FOREX_SYMBOLS || 'EUR/USD' }}
+      INGEST_FOREX_VENUE: ${{ vars.INGEST_FOREX_VENUE || 'OANDA' }}
+      FOREX_HOLIDAYS: ${{ vars.FOREX_HOLIDAYS || '' }}
+      FOREX_EARLY_CLOSES: ${{ vars.FOREX_EARLY_CLOSES || '' }}
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v5
