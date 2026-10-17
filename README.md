@@ -31,3 +31,12 @@ Phase 1 intentionally contains no broker credentials, order execution, AI decisi
 ## Scope
 
 Crypto and forex only. Stocks are out of scope.
+
+
+## Phase 2 — Deterministic quant engine (initial vertical slice)
+
+A dependency-free Python package under `quant/market_engine` provides validated OHLCV inputs, deterministic EMA/RSI/ATR/realized-volatility features, a simple trend regime label, and stop-distance-based position sizing with risk and notional caps. It rejects malformed, unordered, future-dated, and stale candle data. These functions have no network, database, broker, or LLM dependencies.
+
+Run the unit tests with `python -m unittest discover -s tests -v` (Python 3.11+). CI runs these tests alongside the Next.js typecheck, lint, and production build.
+
+This is the first Phase 2 slice, not yet a complete market-data pipeline: exchange/forex feed adapters, candle persistence, gap detection, point-in-time portfolio state, and full risk policy evaluation remain follow-on work. All outputs are research/risk calculations only; order execution remains disabled.
