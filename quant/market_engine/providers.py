@@ -102,7 +102,7 @@ class JsonHttpClient:
                 try:
                     return await asyncio.to_thread(self._read_json_sync, target)
                 except _RetryableHttpError as exc:
-                    retryable = exc.status == 429 or 500 <= exc.status <= 599
+                    retryable = 500 <= exc.status <= 599
                     if not retryable or attempt >= self.max_retries:
                         raise MarketDataProviderError(
                             f"Market-data provider returned HTTP {exc.status}"
@@ -225,7 +225,7 @@ class TwelveDataForexProvider:
     def __init__(self, *, api_key: str | None = None,
                  client: JsonClient | None = None, clock=None) -> None:
         self.api_key = api_key or os.environ.get("TWELVEDATA_API_KEY")
-        self.client = client or JsonHttpClient(min_interval_seconds=1.0, concurrency=1)
+        self.client = client or JsonHttpClient(min_interval_seconds=float(os.environ.get("TWELVEDATA_MIN_INTERVAL_SECONDS", "10")), concurrency=1)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
     async def fetch_ohlcv(self, request: MarketDataRequest) -> Sequence[Candle]:

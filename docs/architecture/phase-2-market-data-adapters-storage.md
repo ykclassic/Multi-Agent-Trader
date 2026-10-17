@@ -1,46 +1,67 @@
-# Phase 2 — Live Market-Data Adapters and Candle Storage
+# Phase 2 — Market Data Ingestion Reliability
 
-## Providers
+## Providers and boundaries
 
-- BinanceSpotProvider reads public Binance spot klines; no exchange key is required for this read-only endpoint.
-- TwelveDataForexProvider reads forex time series and requires the server-side TWELVEDATA_API_KEY.
-- Both normalize candle-open timestamps to UTC, validate OHLCV values, sort output, enforce request windows, and omit still-open candles.
-- JsonHttpClient bounds concurrency, spaces requests, applies timeouts and retries 429/5xx/network errors with capped exponential backoff, and sanitizes upstream failures.
-- The provider contract remains read-only. Neither adapter creates signals, accesses LLMs, nor submits orders.
+- BinanceSpotProvider reads public Binance spot klines.
+- TwelveDataForexProvider reads Twelve Data forex time series. It is a market-data provider, not the OANDA execution/pricing API.
+- Both normalize candle-open timestamps to UTC, validate OHLCV, omit still-open candles, and use bounded HTTP retries and request spacing.
+- The ingestion worker only validates, scores, and stores market data. It does not create signals, invoke an LLM, or submit orders.
 
-The current registry uses BTC/USDT and ETH/USDT on the BINANCE venue, plus BTC-USD on COINBASE. The adapter accepts the registry symbols directly; it also supports BTC/USD and ETH/USD aliases mapped to BTCUSDT/ETHUSDT, but those aliases are USDT-market proxies and are not exact USD quotes. Venue codes are stored uppercase (BINANCE, OANDA, FXCM).
+## Forex session-aware quality
 
-Twelve Data is a third-party forex data source, not the OANDA execution/pricing API. EUR/USD, GBP/USD, and other supported pairs are requested by symbol. Forex spot feeds generally do not have centralized traded volume, so missing volume is represented as zero/unavailable rather than invented.
+ForexSessionCalendar uses New York local sessions (Sunday 17:00 through Friday 17:00), so DST shifts are handled by zoneinfo. Weekend closure timestamps are not counted as missing candles. Forex freshness age is also measured in open-session time, not raw wall-clock time. A genuine missing candle during an open session still reduces completeness.
 
-## Persistence
+FX holiday and early-close schedules vary by provider and market. Configure repository Actions variables:
+- FOREX_CALENDAR_CONFIRMED: set to true only after the maintained holiday schedule is configured.
+- FOREX_HOLIDAYS: comma-separated New York market dates, YYYY-MM-DD (full-day closures); must include at least one future full-day closure within the next 365 days.
+- FOREX_EARLY_CLOSES: comma-separated YYYY-MM-DDTHH:MM values in New York local time.
+Do not assume one universal holiday calendar covers every provider. Validate these values against the selected feed's documented trading schedule. The scheduled worker fails closed until FOREX_CALENDAR_CONFIRMED=true and a future holiday date is present, so an unconfigured calendar cannot silently score weekday holidays as missing data.
 
-public.market_candles stores normalized closed OHLCV with instrument ID, provider/source, timeframe, candle-open time, fetch time, source timestamp/revision, quality score and data version. Its unique key (instrument_id, source, timeframe_seconds, candle_at) makes repeated fetches idempotent and allows provider corrections to update the current row. It does not yet retain immutable revision history; that belongs in the replay/backtesting increment.
+## Canonical candles and immutable revisions
 
-The REST repository uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY only in a server-side worker. Never expose the service-role key through NEXT_PUBLIC_*, browser bundles, client code, or logs. Signed-in app users can read shared candles; browser users cannot insert or revise them. Only the server service role writes market data.
+public.market_candles is the current canonical value per (instrument_id, source, timeframe_seconds, candle_at). Repeated batches upsert that row. If OHLCV changes, a database trigger increments data_version and updates updated_at.
 
-## Running ingestion
+Every observed OHLCV content is also appended to public.market_candle_revisions using a SHA-256 content hash and observed_at. The unique key includes the hash, so replaying identical data does not create duplicate revision records; a provider correction creates a new immutable row. The service role can insert revisions but cannot update/delete them. The canonical row keeps the current source_revision hash for traceability.
 
-Set the following in a trusted worker environment (not the browser):
+## Scheduled worker and circuit breaker
+
+Two GitHub Actions workflows run on main after merge:
+- Crypto: every 5 minutes; default symbols BTC/USDT,ETH/USDT, 5-minute bars, 12-hour overlap.
+- Forex: hourly at minute 17; default symbol EUR/USD, 1-hour bars, 72-hour overlap. This conservative default limits Twelve Data quota usage. Expand INGEST_FOREX_SYMBOLS only after confirming the subscribed quota.
+
+Both workflows use non-cancelling concurrency groups and job timeouts. A database-backed market_data_provider_state table persists consecutive failures and breaker-open time. HTTP 429/credit/rate-limit errors open the breaker for 60 minutes immediately; three other consecutive failures open it for 15 minutes. A successful cycle resets the breaker. Failed provider runs stop that batch and fail the workflow, making failures observable instead of silently passing.
+
+### Required GitHub Actions secrets
+
+Configure these repository secrets before enabling the workflows. The scheduled jobs remain skipped until the repository Actions variable MARKET_DATA_INGESTION_ENABLED is set to true; set it only after secrets and the forex calendar are ready:
 - SUPABASE_URL
-- SUPABASE_SERVICE_ROLE_KEY
-- TWELVEDATA_API_KEY for forex
+- SUPABASE_SERVICE_ROLE_KEY — server-only; never expose as NEXT_PUBLIC_*
+- TWELVEDATA_API_KEY
 
-Instantiate the provider and SupabaseRestCandleRepository.from_env(), then call ingest_candles(provider=..., request=..., instrument_id=..., repository=...). The instrument ID must be resolved from the database registry, not supplied by untrusted clients.
+Optional repository Actions variables:
+- MARKET_DATA_INGESTION_ENABLED (must be true to run either workflow)
+- INGEST_CRYPTO_SYMBOLS, INGEST_CRYPTO_VENUE
+- INGEST_FOREX_SYMBOLS, INGEST_FOREX_VENUE
+- FOREX_CALENDAR_CONFIRMED, FOREX_HOLIDAYS, FOREX_EARLY_CLOSES
 
-This increment provides adapters and a callable ingestion pipeline. It does not yet schedule a recurring worker, populate production candles automatically, or enable live/paper orders. Deploy a scheduled worker only after provider quotas, instrument mappings, secrets, and Supabase grants are verified.
+The workflow uses the existing registry and fails closed if the symbol/venue pair does not resolve to exactly one active instrument. Scheduled workflows start only from the default branch, so merge these changes before expecting scheduled runs.
 
+## Operational verification
 
-## One-shot ingestion CLI
+1. Apply supabase/migrations/20261017133700_market_data_reliability.sql to the target Supabase project before the first scheduled run.
+2. Configure MARKET_DATA_INGESTION_ENABLED=true, then manually dispatch each workflow after configuring secrets and the FX calendar.
+3. Verify market_candles has rows for expected active instruments and that market_candle_revisions records distinct content hashes when provider values change.
+4. Re-run the same candle window and verify no duplicate revision hashes or duplicate canonical keys.
+5. Confirm Friday close to Sunday open creates zero weekend missing bars, while a removed candle inside an open session is counted.
+6. Simulate HTTP 429 and repeated provider failures in tests; verify breaker persistence and cooldown behavior.
 
-From the repository root, in a trusted environment with the server-side variables set:
+## Phase 3 entry gate
 
-~~~bash
-export SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
-export SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVER_ONLY_SERVICE_ROLE_KEY"
-export TWELVEDATA_API_KEY="YOUR_TWELVE_DATA_KEY" # forex only
+Do not proceed into quantitative/market-state engines until:
+- forex weekend, DST, configured holiday, and in-session gap tests pass;
+- identical replay is idempotent and a changed candle produces a distinct immutable revision;
+- provider-specific scheduled workflows pass after manual dispatch;
+- provider breaker state is persisted and rate limits halt further calls during cooldown;
+- production has nonzero candle/revision data and data-quality outcomes are observable.
 
-python -m scripts.ingest_market_data --asset-class crypto --symbol BTC/USDT --timeframe-seconds 3600 --limit 100 --venue BINANCE
-python -m scripts.ingest_market_data --asset-class forex --symbol EUR/USD --timeframe-seconds 3600 --limit 100 --venue OANDA
-~~~
-
-The CLI resolves the exact active instrument ID from the registry and venue before fetching. It prints counts and quality metadata, not secrets. Use a supported timeframe for the chosen provider; for a symbol whose venue market differs from the registry label, pass an explicit crypto --provider-symbol (for example BTCUSDT) and treat the quote-currency mismatch carefully. This is a one-shot bounded run, not a scheduler.
+This increment still does not enable paper/live order execution.

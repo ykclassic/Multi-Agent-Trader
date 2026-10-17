@@ -1,0 +1,29 @@
+name: Scheduled Crypto Market Data
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: market-data-crypto
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    if: ${{ vars.MARKET_DATA_INGESTION_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      INGEST_CRYPTO_SYMBOLS: ${{ vars.INGEST_CRYPTO_SYMBOLS || 'BTC/USDT,ETH/USDT' }}
+      INGEST_CRYPTO_VENUE: ${{ vars.INGEST_CRYPTO_VENUE || 'BINANCE' }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run bounded crypto ingestion
+        run: python -m scripts.market_data_worker --asset-class crypto

@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import unittest
 
 from quant.market_engine import Candle
 from quant.market_engine.quality import score_candle_batch
+from quant.market_engine.sessions import ForexSessionCalendar
 
 
 class MarketDataQualityTests(unittest.TestCase):
@@ -37,6 +38,61 @@ class MarketDataQualityTests(unittest.TestCase):
             score_candle_batch([self.candles[0], self.candles[2], self.candles[1]], source="test-feed", as_of=self.now)
         with self.assertRaisesRegex(ValueError, "(?i)at least one"):
             score_candle_batch([], source="test-feed", as_of=self.now)
+
+    def test_forex_weekend_is_excluded_from_gap_count(self):
+        # New York winter time: Friday 16:00 local is 21:00 UTC; Sunday 17:00 local is 22:00 UTC.
+        friday_close_bar = Candle(datetime(2026, 1, 9, 21, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        sunday_open_bar = Candle(datetime(2026, 1, 11, 22, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [friday_close_bar, sunday_open_bar], source="forex", as_of=datetime(2026, 1, 11, 23, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+        )
+        self.assertEqual(result.missing_candle_count, 0)
+        self.assertNotIn("missing_candles:1", result.issues)
+
+    def test_forex_session_open_tracks_new_york_dst(self):
+        calendar = ForexSessionCalendar()
+        before_open = datetime(2026, 3, 8, 20, 59, tzinfo=timezone.utc)
+        at_open = datetime(2026, 3, 8, 21, 0, tzinfo=timezone.utc)
+        self.assertFalse(calendar.is_open(before_open))
+        self.assertTrue(calendar.is_open(at_open))
+
+    def test_configured_early_close_is_respected(self):
+        calendar = ForexSessionCalendar(early_closes={date(2026, 12, 24): datetime.strptime("13:00", "%H:%M").time()})
+        before_close = datetime(2026, 12, 24, 17, 59, tzinfo=timezone.utc)  # 12:59 New York
+        at_close = datetime(2026, 12, 24, 18, 0, tzinfo=timezone.utc)  # 13:00 New York
+        self.assertTrue(calendar.is_open(before_close))
+        self.assertFalse(calendar.is_open(at_close))
+
+    def test_forex_freshness_age_excludes_weekend_closure(self):
+        friday_bar = Candle(datetime(2026, 1, 9, 21, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [friday_bar], source="forex",
+            as_of=datetime(2026, 1, 11, 22, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+        )
+        self.assertEqual(result.age_seconds, 3600)
+        self.assertEqual(result.freshness_score, 0.5)
+
+    def test_forex_missing_expected_session_bar_is_counted(self):
+        friday_early = Candle(datetime(2026, 1, 9, 20, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        sunday_open_bar = Candle(datetime(2026, 1, 11, 22, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [friday_early, sunday_open_bar], source="forex", as_of=datetime(2026, 1, 11, 23, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+        )
+        self.assertEqual(result.missing_candle_count, 1)
+
+    def test_forex_configured_holiday_is_excluded(self):
+        holiday = date(2026, 1, 12)
+        previous = Candle(datetime(2026, 1, 12, 4, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        after_holiday = Candle(datetime(2026, 1, 13, 5, 0, tzinfo=timezone.utc), 100, 101, 99, 100, 0)
+        result = score_candle_batch(
+            [previous, after_holiday], source="forex", as_of=datetime(2026, 1, 13, 6, 0, tzinfo=timezone.utc),
+            timeframe_seconds=3600, max_age_seconds=7200, market_type="forex",
+            forex_calendar=ForexSessionCalendar(holidays=frozenset({holiday})),
+        )
+        self.assertEqual(result.missing_candle_count, 0)
 
     def test_requires_source_and_timezone(self):
         with self.assertRaisesRegex(ValueError, "source identifier"):

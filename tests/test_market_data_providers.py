@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import unittest
 
 from quant.market_engine.contracts import MarketDataRequest
-from quant.market_engine.providers import BinanceSpotProvider, MarketDataProviderError, TwelveDataForexProvider
+from quant.market_engine.providers import BinanceSpotProvider, JsonHttpClient, MarketDataProviderError, TwelveDataForexProvider, _RetryableHttpError
 
 
 class FakeJsonClient:
@@ -62,6 +62,17 @@ class MarketDataProviderTests(unittest.IsolatedAsyncioTestCase):
         request = MarketDataRequest("EUR/USD", 3600, now - timedelta(hours=2), now, 10)
         with self.assertRaisesRegex(MarketDataProviderError, "TWELVEDATA_API_KEY"):
             await provider.fetch_ohlcv(request)
+
+    async def test_http_429_is_not_retried_by_client(self):
+        client = JsonHttpClient(max_retries=3, min_interval_seconds=0)
+        attempts = []
+        def rate_limited(url):
+            attempts.append(url)
+            raise _RetryableHttpError(429)
+        client._read_json_sync = rate_limited
+        with self.assertRaisesRegex(MarketDataProviderError, "HTTP 429"):
+            await client.get_json("https://example.test", {})
+        self.assertEqual(len(attempts), 1)
 
     async def test_request_must_be_timezone_aware(self):
         provider = BinanceSpotProvider(client=FakeJsonClient([]))

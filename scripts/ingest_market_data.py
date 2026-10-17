@@ -20,6 +20,7 @@ from quant.market_engine.contracts import MarketDataRequest
 from quant.market_engine.ingestion import ingest_candles
 from quant.market_engine.persistence import SupabaseRestCandleRepository
 from quant.market_engine.providers import BinanceSpotProvider, TwelveDataForexProvider
+from quant.market_engine.sessions import load_forex_session_calendar
 
 
 def parse_datetime(value: str) -> datetime:
@@ -92,8 +93,11 @@ async def run(args: argparse.Namespace) -> int:
         start_at=start_at, end_at=end_at, limit=args.limit,
     )
     repository = SupabaseRestCandleRepository.from_env()
+    forex_calendar = load_forex_session_calendar(require_confirmed=True) if args.asset_class == "forex" else None
     result = await ingest_candles(
         provider=provider, request=request, instrument_id=instrument_id, repository=repository,
+        market_type=args.asset_class,
+        forex_calendar=forex_calendar,
     )
     print(json.dumps({
         "source": result.source,

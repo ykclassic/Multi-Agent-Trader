@@ -9,6 +9,7 @@ from .contracts import MarketDataProvider, MarketDataRequest
 from .engine import Candle
 from .persistence import CandleRepository
 from .quality import MarketDataQuality, score_candle_batch
+from .sessions import ForexSessionCalendar
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,7 +24,9 @@ class IngestionResult:
 
 async def ingest_candles(*, provider: MarketDataProvider, request: MarketDataRequest,
                          instrument_id: str, repository: CandleRepository,
-                         clock: Callable[[], datetime] | None = None) -> IngestionResult:
+                         clock: Callable[[], datetime] | None = None,
+                         market_type: str = "crypto",
+                         forex_calendar: ForexSessionCalendar | None = None) -> IngestionResult:
     """Fetch, validate and upsert closed candles; never returns a trading signal."""
     request.validate()
     if not instrument_id.strip():
@@ -49,6 +52,7 @@ async def ingest_candles(*, provider: MarketDataProvider, request: MarketDataReq
             as_of=min(request.end_at.astimezone(timezone.utc), now),
             timeframe_seconds=request.timeframe_seconds,
             max_age_seconds=max(request.timeframe_seconds * 2, 180),
+            market_type=market_type, forex_calendar=forex_calendar,
         )
         quality_score = quality.overall_quality_score
     else:
