@@ -1,7 +1,7 @@
 """Run one bounded market-data ingestion batch from a trusted server environment.
 
 Example:
-  python -m scripts.ingest_market_data --asset-class crypto --symbol BTC/USD
+  python -m scripts.ingest_market_data --asset-class crypto --symbol BTC/USDT
   python -m scripts.ingest_market_data --asset-class forex --symbol EUR/USD
 """
 from __future__ import annotations
@@ -27,6 +27,12 @@ def parse_datetime(value: str) -> datetime:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise argparse.ArgumentTypeError("timestamps must include a timezone, for example +00:00 or Z")
     return parsed.astimezone(timezone.utc)
+
+
+def default_venue_code(asset_class: str, requested_venue: str | None = None) -> str:
+    if asset_class not in ("crypto", "forex"):
+        raise ValueError("asset_class must be crypto or forex")
+    return (requested_venue or ("BINANCE" if asset_class == "crypto" else "OANDA")).upper()
 
 
 def resolve_instrument_id(*, supabase_url: str, service_role_key: str,
@@ -66,7 +72,7 @@ async def run(args: argparse.Namespace) -> int:
     if not supabase_url or not service_role_key:
         raise RuntimeError("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this trusted server environment")
 
-    venue_code = args.venue or ("binance" if args.asset_class == "crypto" else "oanda")
+    venue_code = default_venue_code(args.asset_class, args.venue)
     instrument_id = resolve_instrument_id(
         supabase_url=supabase_url, service_role_key=service_role_key,
         symbol=args.symbol, venue_code=venue_code,
@@ -105,8 +111,8 @@ async def run(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Fetch and persist one bounded crypto/forex candle batch.")
     parser.add_argument("--asset-class", choices=("crypto", "forex"), required=True)
-    parser.add_argument("--symbol", required=True, help="Exact symbol in the instrument registry, e.g. BTC/USD or EUR/USD")
-    parser.add_argument("--venue", help="Registry venue code; defaults to binance for crypto or oanda for forex")
+    parser.add_argument("--symbol", required=True, help="Exact symbol in the instrument registry, e.g. BTC/USDT or EUR/USD")
+    parser.add_argument("--venue", help="Registry venue code; defaults to BINANCE for crypto or OANDA for forex")
     parser.add_argument("--provider-symbol", help="Explicit upstream symbol override (crypto only, e.g. BTCUSDT)")
     parser.add_argument("--timeframe-seconds", type=int, default=3600)
     parser.add_argument("--limit", type=int, default=100)

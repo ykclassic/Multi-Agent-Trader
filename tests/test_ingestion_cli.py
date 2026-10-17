@@ -3,7 +3,7 @@ from datetime import timezone
 import unittest
 from unittest.mock import patch
 
-from scripts.ingest_market_data import parse_datetime, resolve_instrument_id
+from scripts.ingest_market_data import default_venue_code, parse_datetime, resolve_instrument_id
 
 
 class FakeResponse:
@@ -21,6 +21,11 @@ class FakeResponse:
 
 
 class IngestionCliTests(unittest.TestCase):
+    def test_default_venue_codes_match_registry(self):
+        self.assertEqual(default_venue_code("crypto"), "BINANCE")
+        self.assertEqual(default_venue_code("forex"), "OANDA")
+        self.assertEqual(default_venue_code("forex", "fxcm"), "FXCM")
+
     def test_parse_datetime_requires_and_normalizes_timezone(self):
         value = parse_datetime("2026-10-17T08:00:00+01:00")
         self.assertEqual(value.tzinfo, timezone.utc)
@@ -32,7 +37,7 @@ class IngestionCliTests(unittest.TestCase):
                 supabase_url="https://example.supabase.co",
                 service_role_key="server-secret",
                 symbol="EUR/USD",
-                venue_code="oanda",
+                venue_code="OANDA",
             )
         self.assertEqual(result, "instrument-123")
         request = opened.call_args.args[0]
