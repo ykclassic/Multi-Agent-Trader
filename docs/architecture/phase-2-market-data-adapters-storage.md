@@ -33,12 +33,13 @@ Both workflows use non-cancelling concurrency groups and job timeouts. A databas
 
 ### Required GitHub Actions secrets
 
-Configure these repository secrets before enabling the workflows:
+Configure these repository secrets before enabling the workflows. The scheduled jobs remain skipped until the repository Actions variable MARKET_DATA_INGESTION_ENABLED is set to true; set it only after secrets and the forex calendar are ready:
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY — server-only; never expose as NEXT_PUBLIC_*
 - TWELVEDATA_API_KEY
 
 Optional repository Actions variables:
+- MARKET_DATA_INGESTION_ENABLED (must be true to run either workflow)
 - INGEST_CRYPTO_SYMBOLS, INGEST_CRYPTO_VENUE
 - INGEST_FOREX_SYMBOLS, INGEST_FOREX_VENUE
 - FOREX_CALENDAR_CONFIRMED, FOREX_HOLIDAYS, FOREX_EARLY_CLOSES
@@ -48,7 +49,7 @@ The workflow uses the existing registry and fails closed if the symbol/venue pai
 ## Operational verification
 
 1. Apply supabase/migrations/20261017133700_market_data_reliability.sql to the target Supabase project before the first scheduled run.
-2. Manually dispatch each workflow after configuring secrets.
+2. Configure MARKET_DATA_INGESTION_ENABLED=true, then manually dispatch each workflow after configuring secrets and the FX calendar.
 3. Verify market_candles has rows for expected active instruments and that market_candle_revisions records distinct content hashes when provider values change.
 4. Re-run the same candle window and verify no duplicate revision hashes or duplicate canonical keys.
 5. Confirm Friday close to Sunday open creates zero weekend missing bars, while a removed candle inside an open session is counted.
