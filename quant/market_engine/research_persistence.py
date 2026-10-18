@@ -124,7 +124,7 @@ class SupabaseRestResearchRepository:
         raise ResearchPersistenceError("Portfolio snapshot was not persisted or found after an idempotent insert")
 
     def latest_portfolio_snapshot_as_of(self, *, portfolio_id: str,
-                                        decision_time: datetime) -> dict[str, Any] | None:
+                                        decision_time: datetime) -> PortfolioStateSnapshot | None:
         if decision_time.tzinfo is None or decision_time.utcoffset() is None:
             raise ValueError("decision_time must be timezone-aware")
         timestamp = decision_time.astimezone(timezone.utc).isoformat()
@@ -136,7 +136,7 @@ class SupabaseRestResearchRepository:
         rows = self._request_json("GET", f"{self.base_url}/rest/v1/portfolio_state_snapshots?{params}")
         if not isinstance(rows, list):
             raise ResearchPersistenceError("Portfolio state query returned an invalid response")
-        return rows[0] if rows else None
+        return PortfolioStateSnapshot.from_mapping(rows[0]) if rows else None
 
     def append_walk_forward_result(self, result: WalkForwardResult, *, workspace_id: str,
                                    asset_class: str, instrument_id: str | None,
