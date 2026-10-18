@@ -85,6 +85,19 @@ class ResearchPersistenceTests(unittest.TestCase):
         self.assertIn("as_of=lte.", url)
         self.assertIn("observed_at=lte.", url)
 
+    def test_as_of_query_returns_a_validated_portfolio_snapshot(self):
+        snapshot = sample_snapshot()
+        row = snapshot.as_row()
+        row["id"] = "snapshot-id"
+        row["observed_at"] = snapshot.as_of.isoformat()
+        with patch("quant.market_engine.research_persistence.urlopen", return_value=FakeResponse([row])):
+            result = self.repo.latest_portfolio_snapshot_as_of(
+                portfolio_id=snapshot.portfolio_id,
+                decision_time=snapshot.as_of + timedelta(hours=1),
+            )
+        self.assertIsInstance(result, PortfolioStateSnapshot)
+        self.assertEqual(result.state_hash, snapshot.state_hash)
+
 
 if __name__ == "__main__":
     unittest.main()
