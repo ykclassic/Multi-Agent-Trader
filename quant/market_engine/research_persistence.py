@@ -106,7 +106,8 @@ class SupabaseRestResearchRepository:
 
     def append_portfolio_snapshot(self, snapshot: PortfolioStateSnapshot) -> str | None:
         row = snapshot.as_row()
-        url = f"{self.base_url}/rest/v1/portfolio_state_snapshots?" + urlencode({"on_conflict": "portfolio_id,as_of,source,state_hash"})
+        endpoint = f"{self.base_url}/rest/v1/portfolio_state_snapshots"
+        url = endpoint + "?" + urlencode({"on_conflict": "portfolio_id,as_of,source,state_hash"})
         rows = self._request_json("POST", url, row, prefer="resolution=ignore-duplicates,return=representation")
         if isinstance(rows, list) and rows:
             return str(rows[0]["id"])
@@ -116,7 +117,7 @@ class SupabaseRestResearchRepository:
             "as_of": f"eq.{row['as_of']}", "source": f"eq.{snapshot.source}",
             "state_hash": f"eq.{snapshot.state_hash}", "limit": "1",
         })
-        found = self._request_json("GET", f"{url}?{params}")
+        found = self._request_json("GET", f"{endpoint}?{params}")
         if isinstance(found, list) and found:
             return str(found[0]["id"])
         raise ResearchPersistenceError("Portfolio snapshot was not persisted or found after an idempotent insert")
@@ -143,13 +144,14 @@ class SupabaseRestResearchRepository:
             workspace_id=workspace_id, asset_class=asset_class, instrument_id=instrument_id,
             instrument_symbol=instrument_symbol, timeframe_seconds=timeframe_seconds,
         )
-        url = f"{self.base_url}/rest/v1/walk_forward_runs?" + urlencode({"on_conflict": "workspace_id,run_hash"})
+        endpoint = f"{self.base_url}/rest/v1/walk_forward_runs"
+        url = endpoint + "?" + urlencode({"on_conflict": "workspace_id,run_hash"})
         rows = self._request_json("POST", url, row, prefer="resolution=ignore-duplicates,return=representation")
         if isinstance(rows, list) and rows:
             return str(rows[0]["id"])
         params = urlencode({"select": "id", "workspace_id": f"eq.{workspace_id}",
                             "run_hash": f"eq.{result.run_hash}", "limit": "1"})
-        found = self._request_json("GET", f"{url}?{params}")
+        found = self._request_json("GET", f"{endpoint}?{params}")
         if isinstance(found, list) and found:
             return str(found[0]["id"])
         raise ResearchPersistenceError("Walk-forward result was not persisted or found after an idempotent insert")
