@@ -103,7 +103,7 @@ class WalkForwardResult:
 
 
 def _metrics(returns: Sequence[float], positions: Sequence[int], costs: Sequence[float],
-             timeframe_seconds: int) -> dict[str, float]:
+             timeframe_seconds: int, *, market_type: str) -> dict[str, float]:
     if not returns:
         return {"observations": 0.0, "total_return": 0.0, "annualized_sharpe": 0.0,
                 "max_drawdown": 0.0, "hit_rate": 0.0, "turnover": 0.0,
@@ -116,7 +116,8 @@ def _metrics(returns: Sequence[float], positions: Sequence[int], costs: Sequence
         peak = max(peak, equity)
         max_drawdown = max(max_drawdown, (peak - equity) / peak if peak else 1.0)
     deviation = pstdev(returns) if len(returns) > 1 else 0.0
-    periods_per_year = (365.0 * 24.0 * 3600.0) / timeframe_seconds
+    annualization_days = 365.0 if market_type == "crypto" else 252.0
+    periods_per_year = (annualization_days * 24.0 * 3600.0) / timeframe_seconds
     sharpe = fmean(returns) / deviation * math.sqrt(periods_per_year) if deviation > 0 else 0.0
     active = [value for value, position in zip(returns, positions) if position != 0]
     return {
@@ -132,7 +133,7 @@ def _metrics(returns: Sequence[float], positions: Sequence[int], costs: Sequence
 
 
 def _condition_labels(candles: Sequence[Candle], index: int, *, timeframe_seconds: int,
-                      config: WalkForwardConfig) -> tuple[str, ...]:
+                      config: WalkForwardConfig, market_type: str) -> tuple[str, ...]:
     start = max(0, index - config.condition_lookback + 1)
     window = candles[start:index + 1]
     if len(window) < config.condition_lookback:
@@ -140,7 +141,8 @@ def _condition_labels(candles: Sequence[Candle], index: int, *, timeframe_second
     closes = [c.close for c in window]
     returns = [right / left - 1.0 for left, right in zip(closes, closes[1:])]
     trend_return = closes[-1] / closes[0] - 1.0
-    annualization = math.sqrt((365.0 * 24.0 * 3600.0) / timeframe_seconds)
+    annualization_days = 365.0 if market_type == "crypto" else 252.0
+    annualization = math.sqrt((annualization_days * 24.0 * 3600.0) / timeframe_seconds)
     volatility = pstdev(returns) * annualization if len(returns) > 1 else 0.0
     labels: list[str] = []
     if trend_return >= config.bull_bear_return_threshold:
@@ -267,7 +269,7 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
             fold_returns.append(net_return)
             fold_positions.append(signal)
             fold_costs.append(cost)
-            for label in _condition_labels(candles, index, timeframe_seconds=timeframe_seconds, config=config):
+            for label in _condition_labels(candles, index, timeframe_seconds=timeframe_seconds, config=config, market_type=market_type):
                 condition_returns.setdefault(label, []).append(net_return)
                 condition_positions.setdefault(label, []).append(signal)
                 condition_costs.setdefault(label, []).append(cost)
@@ -275,9 +277,9 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
                 all_condition_positions.setdefault(label, []).append(signal)
                 all_condition_costs.setdefault(label, []).append(cost)
             previous_position = signal
-        fold_metrics = _metrics(fold_returns, fold_positions, fold_costs, timeframe_seconds)
+        fold_metrics = _metrics(fold_returns, fold_positions, fold_costs, timeframe_seconds, market_type=market_type)
         fold_condition_metrics = {
-            label: _metrics(values, condition_positions[label], condition_costs[label], timeframe_seconds)
+            label: _metrics(values, condition_positions[label], condition_costs[label], timeframe_seconds, market_type=market_type)
             for label, values in condition_returns.items()
         }
         fold_results.append(FoldResult(
@@ -309,7 +311,7 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
         coverage_gaps.append(f"walk_forward_folds:requires_{config.min_folds}_got_{len(fold_results)}")
     if not all_returns:
         coverage_gaps.append("no_valid_out_of_sample_returns")
-    metrics = _metrics(all_returns, all_positions, all_costs, timeframe_seconds)
+    metrics = _metrics(all_returns, all_positions, all_costs, timeframe_seconds, market_type=market_type)
     metrics["fold_count"] = float(len(fold_results))
     metrics["skipped_data_gap_count"] = float(sum(fold.skipped_data_gap_count for fold in fold_results))
     metrics["condition_coverage_count"] = float(sum(condition_counts.get(label, 0) >= config.min_observations_per_condition for label in required))
