@@ -75,6 +75,7 @@ def main() -> int:
                 forex_calendar=calendar,
             ),
             config=config, market_type=args.asset_class, forex_calendar=calendar,
+            strategy_id="ema_regime_baseline_v1",
         )
         if len(candles) < 2:
             print(json.dumps({
