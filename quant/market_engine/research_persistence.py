@@ -106,7 +106,7 @@ class SupabaseRestResearchRepository:
 
     def append_portfolio_snapshot(self, snapshot: PortfolioStateSnapshot) -> str | None:
         row = snapshot.as_row()
-        url = f"{self.base_url}/rest/v1/portfolio_state_snapshots"
+        url = f"{self.base_url}/rest/v1/portfolio_state_snapshots?" + urlencode({"on_conflict": "portfolio_id,as_of,source,state_hash"})
         rows = self._request_json("POST", url, row, prefer="resolution=ignore-duplicates,return=representation")
         if isinstance(rows, list) and rows:
             return str(rows[0]["id"])
@@ -143,7 +143,7 @@ class SupabaseRestResearchRepository:
             workspace_id=workspace_id, asset_class=asset_class, instrument_id=instrument_id,
             instrument_symbol=instrument_symbol, timeframe_seconds=timeframe_seconds,
         )
-        url = f"{self.base_url}/rest/v1/walk_forward_runs"
+        url = f"{self.base_url}/rest/v1/walk_forward_runs?" + urlencode({"on_conflict": "workspace_id,run_hash"})
         rows = self._request_json("POST", url, row, prefer="resolution=ignore-duplicates,return=representation")
         if isinstance(rows, list) and rows:
             return str(rows[0]["id"])
