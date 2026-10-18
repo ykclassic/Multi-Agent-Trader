@@ -76,6 +76,7 @@ class FoldResult:
 class WalkForwardResult:
     status: Literal["completed", "insufficient_data"]
     algorithm_version: str
+    strategy_id: str
     run_hash: str
     data_start_at: str | None
     data_end_at: str | None
@@ -94,7 +95,7 @@ class WalkForwardResult:
             "instrument_id": instrument_id, "instrument_symbol": instrument_symbol,
             "timeframe_seconds": timeframe_seconds, "data_start_at": self.data_start_at,
             "data_end_at": self.data_end_at, "algorithm_version": self.algorithm_version,
-            "run_hash": self.run_hash, "status": self.status, "config": self.config,
+            "strategy_id": self.strategy_id, "run_hash": self.run_hash, "status": self.status, "config": self.config,
             "summary": self.summary,
             "folds": [asdict(fold) for fold in self.folds],
             "condition_metrics": self.condition_metrics,
@@ -326,8 +327,8 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
         "liquidity_shock_label_type": "OHLCV_proxy_not_orderbook_liquidity",
     }
     return WalkForwardResult(
-        status=status, algorithm_version=ALGORITHM_VERSION, run_hash=run_hash,
-        data_start_at=timestamps[0].isoformat() if timestamps else None,
+        status=status, algorithm_version=ALGORITHM_VERSION, strategy_id=strategy_id,
+        run_hash=run_hash, data_start_at=timestamps[0].isoformat() if timestamps else None,
         data_end_at=timestamps[-1].isoformat() if timestamps else None,
         candle_count=n, config=asdict(config), summary=summary,
         folds=tuple(fold_results), condition_metrics=condition_metrics,
