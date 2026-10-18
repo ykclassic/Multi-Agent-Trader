@@ -105,6 +105,33 @@ class SupabaseRestResearchRepository:
             raise ResearchPersistenceError("Point-in-time candle query returned duplicate or unordered candles")
         return tuple(result)
 
+
+    def create_portfolio(self, *, workspace_id: str, name: str,
+                         base_currency: str = "USD", created_by: str | None = None) -> str:
+        if not workspace_id.strip() or not name.strip() or len(name.strip()) > 120:
+            raise ValueError("workspace_id and a 1-120 character portfolio name are required")
+        if not base_currency.isascii() or not base_currency.isupper() or not (3 <= len(base_currency) <= 8):
+            raise ValueError("base_currency must be an uppercase 3-8 character code")
+        row = {
+            "workspace_id": workspace_id, "name": name.strip(),
+            "base_currency": base_currency,
+        }
+        if created_by:
+            row["created_by"] = created_by
+        endpoint = f"{self.base_url}/rest/v1/portfolios"
+        url = endpoint + "?" + urlencode({"on_conflict": "workspace_id,name"})
+        rows = self._request_json("POST", url, row, prefer="resolution=ignore-duplicates,return=representation")
+        if isinstance(rows, list) and rows:
+            return str(rows[0]["id"])
+        params = urlencode({
+            "select": "id", "workspace_id": f"eq.{workspace_id}",
+            "name": f"eq.{name.strip()}", "limit": "1",
+        })
+        found = self._request_json("GET", f"{endpoint}?{params}")
+        if isinstance(found, list) and found:
+            return str(found[0]["id"])
+        raise ResearchPersistenceError("Portfolio was not created or found after an idempotent insert")
+
     def append_portfolio_snapshot(self, snapshot: PortfolioStateSnapshot) -> str | None:
         row = snapshot.as_row()
         endpoint = f"{self.base_url}/rest/v1/portfolio_state_snapshots"
