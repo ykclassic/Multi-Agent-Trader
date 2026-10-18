@@ -8,7 +8,7 @@ import json
 import math
 from typing import Any, Literal, Sequence
 
-from .risk import PortfolioRiskState
+from .risk import (\n    PortfolioRiskState, ProposedExposure, RiskLimits, RiskPolicyDecision, evaluate_portfolio_risk,\n)
 
 SnapshotSource = Literal["manual_import", "historical_replay", "read_only_import"]
 AssetClass = Literal["crypto", "forex"]
@@ -189,3 +189,12 @@ class PortfolioStateSnapshot:
         )
         snapshot.validate()
         return snapshot
+
+
+def evaluate_snapshot_proposal(snapshot: PortfolioStateSnapshot, proposed: ProposedExposure, *,
+                               limits: RiskLimits = RiskLimits(),
+                               signed_notional: float | None = None) -> RiskPolicyDecision:
+    """Apply the portfolio risk policy to a validated persisted point-in-time snapshot."""
+    return evaluate_portfolio_risk(
+        snapshot.as_risk_state(), proposed, limits=limits, signed_notional=signed_notional,
+    )
