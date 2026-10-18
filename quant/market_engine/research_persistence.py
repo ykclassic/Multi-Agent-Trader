@@ -10,6 +10,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from .calibration import RiskCalibrationReport
 from .engine import Candle
 from .portfolio_state import PortfolioStateSnapshot
 from .walk_forward import WalkForwardResult
@@ -155,3 +156,49 @@ class SupabaseRestResearchRepository:
         if isinstance(found, list) and found:
             return str(found[0]["id"])
         raise ResearchPersistenceError("Walk-forward result was not persisted or found after an idempotent insert")
+
+
+    def fetch_portfolio_snapshots(self, *, workspace_id: str, start_at: datetime,
+                                  end_at: datetime, portfolio_id: str | None = None,
+                                  limit: int = 10000) -> tuple[PortfolioStateSnapshot, ...]:
+        if not workspace_id.strip() or start_at.tzinfo is None or end_at.tzinfo is None or start_at >= end_at:
+            raise ValueError("workspace_id and ordered timezone-aware start/end times are required")
+        if not 1 <= limit <= 10000:
+            raise ValueError("limit must be between 1 and 10000")
+        start = start_at.astimezone(timezone.utc).isoformat()
+        end = end_at.astimezone(timezone.utc).isoformat()
+        filters = {
+            "select": "*", "workspace_id": f"eq.{workspace_id}",
+            "as_of": f"gte.{start}", "observed_at": f"lte.{end}",
+            "order": "as_of.asc", "limit": str(limit),
+        }
+        # PostgREST permits only one filter per column; use an explicit AND expression
+        # for the inclusive upper bound while retaining URL-encoded query parameters.
+        filters.pop("as_of")
+        filters["and"] = f"(as_of.gte.{start},as_of.lte.{end})"
+        if portfolio_id:
+            filters["portfolio_id"] = f"eq.{portfolio_id}"
+        rows = self._request_json(
+            "GET", f"{self.base_url}/rest/v1/portfolio_state_snapshots?{urlencode(filters)}"
+        )
+        if not isinstance(rows, list):
+            raise ResearchPersistenceError("Portfolio snapshot history query returned an invalid response")
+        snapshots = tuple(PortfolioStateSnapshot.from_mapping(row) for row in rows)
+        if any(right.as_of < left.as_of for left, right in zip(snapshots, snapshots[1:])):
+            raise ResearchPersistenceError("Portfolio snapshot history is not chronologically ordered")
+        return snapshots
+
+    def append_risk_calibration_report(self, report: RiskCalibrationReport, *,
+                                       workspace_id: str, portfolio_id: str | None = None) -> str | None:
+        row = report.as_row(workspace_id=workspace_id, portfolio_id=portfolio_id)
+        endpoint = f"{self.base_url}/rest/v1/risk_calibration_runs"
+        url = endpoint + "?" + urlencode({"on_conflict": "workspace_id,run_hash"})
+        rows = self._request_json("POST", url, row, prefer="resolution=ignore-duplicates,return=representation")
+        if isinstance(rows, list) and rows:
+            return str(rows[0]["id"])
+        params = urlencode({"select": "id", "workspace_id": f"eq.{workspace_id}",
+                            "run_hash": f"eq.{report.run_hash}", "limit": "1"})
+        found = self._request_json("GET", f"{endpoint}?{params}")
+        if isinstance(found, list) and found:
+            return str(found[0]["id"])
+        raise ResearchPersistenceError("Risk calibration report was not persisted or found after an idempotent insert")
