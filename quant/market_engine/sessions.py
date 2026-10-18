@@ -1,4 +1,4 @@
-"""Session calendars for market-data completeness scoring.
+""""Session calendars for market-data completeness scoring.
 
 The default FX session is the common New York 17:00 Sunday open to Friday
 17:00 close. Holiday dates and early closes are configurable because FX holiday
@@ -7,7 +7,7 @@ liquidity/availability is provider- and jurisdiction-dependent.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 import os
 from zoneinfo import ZoneInfo
 
@@ -37,6 +37,7 @@ class ForexSessionCalendar:
         if day in self.early_closes:
             return local.timetz().replace(tzinfo=None) < self.early_closes[day]
         return True
+
     def trading_seconds_between(self, start: datetime, end: datetime) -> float:
         """Return elapsed wall-clock seconds that fall inside expected FX sessions.
 
@@ -47,7 +48,6 @@ class ForexSessionCalendar:
             raise ValueError("Session timestamps must be timezone-aware")
         if end <= start:
             return 0.0
-        from datetime import timedelta
         cursor = start
         elapsed = 0.0
         step = timedelta(minutes=15)
@@ -58,7 +58,6 @@ class ForexSessionCalendar:
                 elapsed += (next_cursor - cursor).total_seconds()
             cursor = next_cursor
         return elapsed
-
 
 
 def load_forex_session_calendar(*, require_confirmed: bool = False, now: datetime | None = None) -> ForexSessionCalendar:
