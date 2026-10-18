@@ -61,6 +61,18 @@ class ResearchPersistenceTests(unittest.TestCase):
         self.assertEqual(payload["p_max_observation_delay_seconds"], 300)
         self.assertNotIn("server-only-test-secret", request.full_url)
 
+    def test_portfolio_creation_is_idempotent(self):
+        with patch("quant.market_engine.research_persistence.urlopen",
+                   side_effect=[FakeResponse([]), FakeResponse([{"id": "portfolio-id"}])]) as urlopen:
+            portfolio_id = self.repo.create_portfolio(
+                workspace_id="workspace-1", name="Research", base_currency="USD"
+            )
+        self.assertEqual(portfolio_id, "portfolio-id")
+        post = urlopen.call_args_list[0].args[0]
+        self.assertEqual(post.get_method(), "POST")
+        self.assertIn("on_conflict=workspace_id%2Cname", post.full_url)
+        self.assertNotIn("server-only-test-secret", post.full_url)
+
     def test_snapshot_insert_is_idempotent_and_fallback_queries_by_hash(self):
         snapshot = sample_snapshot()
         with patch("quant.market_engine.research_persistence.urlopen",
