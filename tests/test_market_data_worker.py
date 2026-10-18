@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import os
 import unittest
 from unittest.mock import patch
@@ -34,6 +34,13 @@ class MarketDataWorkerTests(unittest.TestCase):
         with patch.dict(os.environ, {"FOREX_CALENDAR_CONFIRMED": "false"}):
             with self.assertRaisesRegex(RuntimeError, "FOREX_CALENDAR_CONFIRMED"):
                 configured_forex_calendar()
+
+    def test_confirmed_forex_calendar_loads_with_timezone(self):
+        holiday = (date.today() + timedelta(days=30)).isoformat()
+        env = {"FOREX_CALENDAR_CONFIRMED": "true", "FOREX_HOLIDAYS": holiday}
+        with patch.dict(os.environ, env, clear=False):
+            calendar = configured_forex_calendar()
+        self.assertIn(date.fromisoformat(holiday), calendar.holidays)
 
     def test_first_transient_failure_does_not_open_breaker(self):
         breaker = FakeCircuitBreaker()
