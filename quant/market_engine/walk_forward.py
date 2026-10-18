@@ -7,7 +7,7 @@ turnover costs. Liquidity-shock labels are OHLCV proxies, never true depth data.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
@@ -217,7 +217,7 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
     all_returns: list[float] = []
     all_positions: list[int] = []
     all_costs: list[float] = []
-    all_conditions: dict[str, list[float]] = {}
+    all_conditions: dict[str, list[float]] = {}\n    all_condition_positions: dict[str, list[int]] = {}\n    all_condition_costs: dict[str, list[float]] = {}
     coverage_gaps: list[str] = []
     n = len(candles)
     fold_start = 0
@@ -244,7 +244,7 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
             if market_type == "crypto":
                 valid_gap = abs((right - left).total_seconds() - timeframe_seconds) <= 1
             else:
-                expected_open_seconds = calendar.trading_seconds_between(left + __import__("datetime").timedelta(seconds=timeframe_seconds), right)
+                expected_open_seconds = calendar.trading_seconds_between(left + timedelta(seconds=timeframe_seconds), right)
                 valid_gap = expected_open_seconds <= 1
             if not valid_gap:
                 skipped_gaps += 1
@@ -265,7 +265,7 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
                 condition_returns.setdefault(label, []).append(net_return)
                 condition_positions.setdefault(label, []).append(signal)
                 condition_costs.setdefault(label, []).append(cost)
-                all_conditions.setdefault(label, []).append(net_return)
+                all_conditions.setdefault(label, []).append(net_return)\n                all_condition_positions.setdefault(label, []).append(signal)\n                all_condition_costs.setdefault(label, []).append(cost)
             previous_position = signal
         fold_metrics = _metrics(fold_returns, fold_positions, fold_costs, timeframe_seconds)
         fold_condition_metrics = {
