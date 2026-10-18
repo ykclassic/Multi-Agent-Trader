@@ -77,16 +77,17 @@ def synthetic_candles(count=520):
         elif index < 240:
             change = -0.008
         elif index < 380:
-            change = 0.025 if index % 2 else -0.022
+            if index % 5 == 0:
+                change = 0.12 if index % 10 == 0 else -0.10
+            else:
+                change = 0.025 if index % 2 else -0.022
         else:
             change = 0.001 if index % 3 else -0.001
         previous = close
         close = max(1.0, close * (1.0 + change))
         high = max(previous, close) * 1.001
         low = min(previous, close) * 0.999
-        volume = 1000.0
-        if 240 <= index < 380 and index % 5 == 0:
-            volume = 6000.0
+        volume = 6000.0 if 240 <= index < 380 and index % 5 == 0 else 1000.0
         candles.append(Candle(
             now + timedelta(hours=index), previous, high, low, close, volume,
         ))
