@@ -8,7 +8,9 @@ import json
 import math
 from typing import Any, Literal, Sequence
 
-from .risk import (\n    PortfolioRiskState, ProposedExposure, RiskLimits, RiskPolicyDecision, evaluate_portfolio_risk,\n)
+from .risk import (
+    PortfolioRiskState, ProposedExposure, RiskLimits, RiskPolicyDecision, evaluate_portfolio_risk,
+)
 
 SnapshotSource = Literal["manual_import", "historical_replay", "read_only_import"]
 AssetClass = Literal["crypto", "forex"]
