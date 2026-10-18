@@ -62,6 +62,15 @@ Migration `20261018100000_point_in_time_research.sql` adds workspace-scoped port
 - A snapshot imported after a historical decision time is excluded from `latest_portfolio_snapshot_as_of`, preventing retroactive knowledge from entering a replay.
 - Never put the service-role key in the browser or in the snapshot JSON file.
 
+Create a portfolio container first if the workspace does not already have one:
+
+```bash
+python -m scripts.create_research_portfolio \
+  --workspace-id WORKSPACE_UUID --name "Research portfolio" --base-currency USD
+```
+
+Use the returned portfolio UUID in the snapshot JSON. The trusted CLI is idempotent for the same workspace/name.
+
 Example snapshot import from a trusted environment:
 
 ```bash
