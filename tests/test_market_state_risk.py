@@ -36,6 +36,16 @@ class MarketStateAndRiskTests(unittest.TestCase):
         self.assertEqual(result.status, "blocked")
         self.assertIn("insufficient_candles:minimum_27", result.reasons)
 
+    def test_irregular_candle_cadence_blocks_market_state(self):
+        candles = list(self.candles)
+        candles[20] = Candle(candles[20].timestamp + timedelta(minutes=5),
+            candles[20].open, candles[20].high, candles[20].low,
+            candles[20].close, candles[20].volume)
+        result = classify_market_state(candles, source="test", as_of=self.now,
+            timeframe_seconds=3600, max_age_seconds=7200)
+        self.assertEqual(result.status, "blocked")
+        self.assertIn("irregular_candle_cadence", result.reasons)
+
     def test_risk_policy_allows_within_limits(self):
         result = evaluate_portfolio_risk(self.portfolio, self.proposed)
         self.assertTrue(result.allowed)
@@ -70,6 +80,12 @@ class MarketStateAndRiskTests(unittest.TestCase):
     def test_limits_reject_invalid_configuration(self):
         with self.assertRaisesRegex(ValueError, "between 0 and 1"):
             RiskLimits(max_gross_exposure_fraction=1.2).validate()
+
+    def test_peak_equity_below_current_equity_fails_closed(self):
+        portfolio = PortfolioRiskState(11_000, 0, 10_000, 2_000, 1_000, 50, 1, 2_000)
+        result = evaluate_portfolio_risk(portfolio, self.proposed)
+        self.assertFalse(result.allowed)
+        self.assertIn("peak_equity_below_current_equity", result.reasons)
 
     def test_invalid_signed_exposure_and_quality_score_fail_closed(self):
         result = evaluate_portfolio_risk(self.portfolio, self.proposed, signed_notional=float("nan"))
