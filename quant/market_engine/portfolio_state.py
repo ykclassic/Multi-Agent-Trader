@@ -100,8 +100,6 @@ class PortfolioStateSnapshot:
         net = sum(p.notional if p.side == "long" else -p.notional for p in self.positions)
         open_risk = sum(p.estimated_loss_at_stop for p in self.positions)
         largest = max((p.notional for p in self.positions), default=0.0)
-        if not math.isclose(gross, gross, rel_tol=0.0, abs_tol=1e-9):
-            raise ValueError("Gross exposure must be finite")
         if not all(math.isfinite(x) for x in (gross, net, open_risk, largest, cash, pnl)):
             raise ValueError("Derived portfolio exposure values must be finite")
         if self.metadata is not None:
