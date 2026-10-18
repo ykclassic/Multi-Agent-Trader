@@ -220,7 +220,9 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
     all_returns: list[float] = []
     all_positions: list[int] = []
     all_costs: list[float] = []
-    all_conditions: dict[str, list[float]] = {}\n    all_condition_positions: dict[str, list[int]] = {}\n    all_condition_costs: dict[str, list[float]] = {}
+    all_conditions: dict[str, list[float]] = {}
+    all_condition_positions: dict[str, list[int]] = {}
+    all_condition_costs: dict[str, list[float]] = {}
     coverage_gaps: list[str] = []
     n = len(candles)
     fold_start = 0
@@ -268,7 +270,9 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
                 condition_returns.setdefault(label, []).append(net_return)
                 condition_positions.setdefault(label, []).append(signal)
                 condition_costs.setdefault(label, []).append(cost)
-                all_conditions.setdefault(label, []).append(net_return)\n                all_condition_positions.setdefault(label, []).append(signal)\n                all_condition_costs.setdefault(label, []).append(cost)
+                all_conditions.setdefault(label, []).append(net_return)
+                all_condition_positions.setdefault(label, []).append(signal)
+                all_condition_costs.setdefault(label, []).append(cost)
             previous_position = signal
         fold_metrics = _metrics(fold_returns, fold_positions, fold_costs, timeframe_seconds)
         fold_condition_metrics = {
