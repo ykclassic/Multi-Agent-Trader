@@ -71,5 +71,15 @@ class MarketStateAndRiskTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "between 0 and 1"):
             RiskLimits(max_gross_exposure_fraction=1.2).validate()
 
+    def test_invalid_signed_exposure_and_quality_score_fail_closed(self):
+        result = evaluate_portfolio_risk(self.portfolio, self.proposed, signed_notional=float("nan"))
+        self.assertFalse(result.allowed)
+        self.assertIn("non_finite_risk_input", result.reasons)
+        result = evaluate_portfolio_risk(self.portfolio, ProposedExposure(1000, 40, 1.5, 60))
+        self.assertFalse(result.allowed)
+        self.assertIn("invalid_market_data_quality_score", result.reasons)
+        result = evaluate_portfolio_risk(self.portfolio, self.proposed, signed_notional=2000)
+        self.assertIn("signed_notional_exceeds_proposed_notional", result.reasons)
+
 if __name__ == "__main__":
     unittest.main()
