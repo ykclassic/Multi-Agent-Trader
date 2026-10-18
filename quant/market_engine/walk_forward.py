@@ -299,7 +299,8 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
         fold_index += 1
         fold_start += config.step_candles
     condition_metrics = {
-        label: _metrics(values, [0] * len(values), [0.0] * len(values), timeframe_seconds)
+        label: _metrics(values, all_condition_positions[label], all_condition_costs[label],
+                        timeframe_seconds, market_type=market_type)
         for label, values in all_conditions.items()
     }
     condition_counts = {label: len(values) for label, values in all_conditions.items()}
