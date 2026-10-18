@@ -72,9 +72,9 @@ def _position_scenarios(snapshot: PortfolioStateSnapshot):
             market_data_age_seconds=age, market_data_valid=True,
         ), 0.0
         return
-    for position in snapshot.positions:
+    for index, position in enumerate(snapshot.positions):
         signed = position.notional if position.side == "long" else -position.notional
-        remaining_positions = [other for other in snapshot.positions if other is not position]
+        remaining_positions = [other for offset, other in enumerate(snapshot.positions) if offset != index]
         base = PortfolioRiskState(
             equity=state.equity, daily_pnl=state.daily_pnl, peak_equity=state.peak_equity,
             gross_notional=max(0.0, state.gross_notional - position.notional),
