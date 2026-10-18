@@ -1,6 +1,14 @@
 name: Scheduled Forex Market Data
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "quant/market_engine/**"
+      - "scripts/market_data_worker.py"
+      - "scripts/ingest_market_data.py"
+      - ".github/workflows/market-data-crypto.yml"
+      - ".github/workflows/market-data-forex.yml"
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
