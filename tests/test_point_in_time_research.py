@@ -1,7 +1,9 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import unittest
 
 from quant.market_engine.engine import Candle
+from quant.market_engine.calibration import RiskCalibrationCandidate, calibrate_risk_limits
 from quant.market_engine.portfolio_state import (
     PortfolioStateSnapshot, PositionSnapshot, evaluate_snapshot_proposal,
 )
@@ -65,6 +67,30 @@ class PortfolioStateTests(unittest.TestCase):
         decision = evaluate_snapshot_proposal(self.snapshot, proposal)
         self.assertFalse(decision.allowed)
         self.assertIn("gross_exposure_limit_exceeded", decision.reasons)
+
+    def test_risk_threshold_sensitivity_report_never_promotes_a_candidate(self):
+        later = replace(self.snapshot, as_of=self.now + timedelta(days=1),
+                        market_data_as_of=self.now + timedelta(days=1))
+        candidates = (
+            RiskCalibrationCandidate("baseline", RiskLimits()),
+            RiskCalibrationCandidate("tight_concentration", RiskLimits(max_single_position_fraction=0.05)),
+        )
+        report = calibrate_risk_limits((self.snapshot, later), candidates=candidates, min_samples=4)
+        self.assertEqual(report.status, "completed")
+        self.assertEqual(report.sample_count, 4)
+        self.assertEqual(report.candidates[0].allowed_count, 4)
+        self.assertGreater(report.candidates[1].rejected_count, 0)
+        self.assertIn("single_position_concentration_limit_exceeded",
+                      report.candidates[1].reason_counts)
+        self.assertEqual(report.run_hash, calibrate_risk_limits(
+            (self.snapshot, later), candidates=candidates, min_samples=4).run_hash)
+
+    def test_calibration_requires_sufficient_historical_samples(self):
+        report = calibrate_risk_limits((self.snapshot,), candidates=(
+            RiskCalibrationCandidate("baseline", RiskLimits()),), min_samples=20)
+        self.assertEqual(report.status, "insufficient_data")
+        self.assertTrue(report.coverage_gaps)
+        self.assertEqual(report.candidates[0].status, "insufficient_data")
 
 
 def synthetic_candles(count=520):
