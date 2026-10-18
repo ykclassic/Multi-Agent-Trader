@@ -179,7 +179,12 @@ class PortfolioStateSnapshot:
             value = payload[key]
             parsed = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
             return _aware_utc(parsed, key)
-        positions = tuple(PositionSnapshot(**item) for item in payload.get("positions", ()))
+        positions = tuple(PositionSnapshot(
+            symbol=str(item["symbol"]), asset_class=item["asset_class"], side=item["side"],
+            quantity=float(item["quantity"]), mark_price=float(item["mark_price"]),
+            notional=float(item["notional"]),
+            estimated_loss_at_stop=float(item["estimated_loss_at_stop"]),
+        ) for item in payload.get("positions", ()))
         snapshot = cls(
             portfolio_id=str(payload["portfolio_id"]), workspace_id=str(payload["workspace_id"]),
             as_of=parse_time("as_of"), market_data_as_of=parse_time("market_data_as_of"),
