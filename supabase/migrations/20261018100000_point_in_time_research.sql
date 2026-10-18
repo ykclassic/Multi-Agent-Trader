@@ -74,6 +74,7 @@ create table if not exists public.walk_forward_runs (
   data_start_at timestamptz not null,
   data_end_at timestamptz not null check (data_end_at > data_start_at),
   algorithm_version text not null check (char_length(algorithm_version) between 1 and 100),
+  strategy_id text not null check (char_length(strategy_id) between 1 and 100),
   run_hash text not null check (run_hash ~ '^[a-f0-9]{64}$'),
   status text not null check (status in ('completed','insufficient_data','failed')),
   config jsonb not null check (jsonb_typeof(config) = 'object'),
@@ -137,3 +138,33 @@ as $$
 $$;
 revoke all on function public.get_point_in_time_market_candles(uuid, integer, timestamptz, timestamptz, integer) from public, anon, authenticated;
 grant execute on function public.get_point_in_time_market_candles(uuid, integer, timestamptz, timestamptz, integer) to service_role;
+
+
+create table if not exists public.risk_calibration_runs (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete restrict,
+  portfolio_id uuid references public.portfolios(id) on delete restrict,
+  calibration_version text not null check (char_length(calibration_version) between 1 and 100),
+  run_hash text not null check (run_hash ~ '^[a-f0-9]{64}$'),
+  snapshot_count integer not null check (snapshot_count >= 0),
+  sample_count integer not null check (sample_count >= 0),
+  data_start_at timestamptz,
+  data_end_at timestamptz,
+  min_samples_required integer not null check (min_samples_required > 0),
+  status text not null check (status in ('completed','insufficient_data')),
+  candidate_results jsonb not null check (jsonb_typeof(candidate_results) = 'array'),
+  coverage_gaps jsonb not null default '[]'::jsonb check (jsonb_typeof(coverage_gaps) = 'array'),
+  created_at timestamptz not null default now(),
+  unique (workspace_id, run_hash),
+  check (data_start_at is null or data_end_at is null or data_end_at >= data_start_at)
+);
+create index if not exists risk_calibration_workspace_history_idx
+  on public.risk_calibration_runs (workspace_id, created_at desc);
+alter table public.risk_calibration_runs enable row level security;
+revoke all privileges on table public.risk_calibration_runs from anon, authenticated;
+grant select on table public.risk_calibration_runs to authenticated;
+revoke update, delete, truncate, references, trigger on table public.risk_calibration_runs from service_role;
+grant select, insert on table public.risk_calibration_runs to service_role;
+create policy "workspace members can read risk calibration runs"
+  on public.risk_calibration_runs for select to authenticated
+  using ((select private.is_workspace_member(workspace_id)));
