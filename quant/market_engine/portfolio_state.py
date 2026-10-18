@@ -57,8 +57,9 @@ class PositionSnapshot:
         self.validate()
         return {
             "symbol": self.symbol, "asset_class": self.asset_class, "side": self.side,
-            "quantity": self.quantity, "mark_price": self.mark_price,
-            "notional": self.notional, "estimated_loss_at_stop": self.estimated_loss_at_stop,
+            "quantity": float(self.quantity), "mark_price": float(self.mark_price),
+            "notional": float(self.notional),
+            "estimated_loss_at_stop": float(self.estimated_loss_at_stop),
         }
 
 
@@ -138,9 +139,9 @@ class PortfolioStateSnapshot:
             "as_of": _aware_utc(self.as_of, "as_of").isoformat(),
             "market_data_as_of": _aware_utc(self.market_data_as_of, "market_data_as_of").isoformat(),
             "source": self.source, "base_currency": self.base_currency,
-            "cash_balance": self.cash_balance, "equity": self.equity,
-            "daily_pnl": self.daily_pnl, "peak_equity": self.peak_equity,
-            "market_data_quality_score": self.market_data_quality_score,
+            "cash_balance": float(self.cash_balance), "equity": float(self.equity),
+            "daily_pnl": float(self.daily_pnl), "peak_equity": float(self.peak_equity),
+            "market_data_quality_score": float(self.market_data_quality_score),
             "positions": [p.as_dict() for p in self.positions],
             "metadata": self.metadata or {},
         }
