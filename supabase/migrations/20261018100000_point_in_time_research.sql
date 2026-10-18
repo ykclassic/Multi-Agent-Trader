@@ -13,7 +13,7 @@ create table if not exists public.portfolios (
   unique (id, workspace_id)
 );
 alter table public.portfolios enable row level security;
-revoke all on table public.portfolios from anon;
+revoke all on table public.portfolios from public, anon, authenticated, service_role;
 grant select, insert, update on table public.portfolios to authenticated;
 grant select, insert, update on table public.portfolios to service_role;
 create policy "workspace members can read portfolios" on public.portfolios
@@ -55,7 +55,7 @@ create index if not exists portfolio_state_history_idx
 create index if not exists portfolio_state_workspace_idx
   on public.portfolio_state_snapshots (workspace_id, as_of desc);
 alter table public.portfolio_state_snapshots enable row level security;
-revoke all privileges on table public.portfolio_state_snapshots from anon, authenticated;
+revoke all privileges on table public.portfolio_state_snapshots from public, anon, authenticated, service_role;
 grant select on table public.portfolio_state_snapshots to authenticated;
 revoke update, delete, truncate, references, trigger on table public.portfolio_state_snapshots from service_role;
 grant select, insert on table public.portfolio_state_snapshots to service_role;
@@ -89,7 +89,7 @@ create index if not exists walk_forward_workspace_history_idx
 create index if not exists walk_forward_instrument_history_idx
   on public.walk_forward_runs (instrument_symbol, timeframe_seconds, data_start_at, data_end_at);
 alter table public.walk_forward_runs enable row level security;
-revoke all privileges on table public.walk_forward_runs from anon, authenticated;
+revoke all privileges on table public.walk_forward_runs from public, anon, authenticated, service_role;
 grant select on table public.walk_forward_runs to authenticated;
 revoke update, delete, truncate, references, trigger on table public.walk_forward_runs from service_role;
 grant select, insert on table public.walk_forward_runs to service_role;
@@ -161,7 +161,7 @@ create table if not exists public.risk_calibration_runs (
 create index if not exists risk_calibration_workspace_history_idx
   on public.risk_calibration_runs (workspace_id, created_at desc);
 alter table public.risk_calibration_runs enable row level security;
-revoke all privileges on table public.risk_calibration_runs from anon, authenticated;
+revoke all privileges on table public.risk_calibration_runs from public, anon, authenticated, service_role;
 grant select on table public.risk_calibration_runs to authenticated;
 revoke update, delete, truncate, references, trigger on table public.risk_calibration_runs from service_role;
 grant select, insert on table public.risk_calibration_runs to service_role;
