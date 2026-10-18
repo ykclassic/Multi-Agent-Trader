@@ -57,6 +57,8 @@ def classify_market_state(candles: Sequence[Candle], *, source: str, as_of,
         reasons.append("market_data_quality_below_threshold")
     if quality.missing_candle_count:
         reasons.append("missing_expected_candles")
+    if "irregular_candle_cadence" in quality.issues:
+        reasons.append("irregular_candle_cadence")
     if reasons:
         return MarketState("blocked", "unknown", "unknown", "unknown",
             quality.overall_quality_score, candles[-1].timestamp.isoformat(),
