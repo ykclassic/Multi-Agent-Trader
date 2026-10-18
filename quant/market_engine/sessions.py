@@ -1,4 +1,4 @@
-""""Session calendars for market-data completeness scoring.
+"""Session calendars for market-data completeness scoring.
 
 The default FX session is the common New York 17:00 Sunday open to Friday
 17:00 close. Holiday dates and early closes are configurable because FX holiday
