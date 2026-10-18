@@ -67,11 +67,12 @@ def evaluate_portfolio_risk(portfolio: PortfolioRiskState, proposed: ProposedExp
     omitted, proposed exposure is treated as long. Invalid inputs fail closed.
     """
     limits.validate()
+    signed_value = proposed.notional if signed_notional is None else signed_notional
     numeric = (portfolio.equity, portfolio.daily_pnl, portfolio.peak_equity,
         portfolio.gross_notional, portfolio.net_notional, portfolio.open_risk,
         portfolio.largest_position_notional, proposed.notional,
         proposed.estimated_loss_at_stop, proposed.market_quality_score,
-        proposed.market_data_age_seconds)
+        proposed.market_data_age_seconds, signed_value)
     reasons: list[str] = []
     if not all(math.isfinite(value) for value in numeric):
         reasons.append("non_finite_risk_input")
@@ -84,6 +85,10 @@ def evaluate_portfolio_risk(portfolio: PortfolioRiskState, proposed: ProposedExp
         reasons.append("invalid_open_position_count")
     if proposed.market_data_valid is not True:
         reasons.append("market_data_invalid")
+    if not 0.0 <= proposed.market_quality_score <= 1.0:
+        reasons.append("invalid_market_data_quality_score")
+    if abs(signed_value) > proposed.notional:
+        reasons.append("signed_notional_exceeds_proposed_notional")
     if proposed.market_quality_score < limits.min_market_quality_score:
         reasons.append("market_data_quality_below_minimum")
     if proposed.market_data_age_seconds < 0 or proposed.market_data_age_seconds > limits.max_market_data_age_seconds:
@@ -91,7 +96,7 @@ def evaluate_portfolio_risk(portfolio: PortfolioRiskState, proposed: ProposedExp
     safe_equity = portfolio.equity if math.isfinite(portfolio.equity) and portfolio.equity > 0 else 1.0
     daily_loss = max(0.0, -portfolio.daily_pnl / safe_equity)
     drawdown = max(0.0, (portfolio.peak_equity - portfolio.equity) / portfolio.peak_equity) if portfolio.peak_equity > 0 else 1.0
-    signed = proposed.notional if signed_notional is None else signed_notional
+    signed = signed_value
     gross = (portfolio.gross_notional + proposed.notional) / safe_equity
     net = abs(portfolio.net_notional + signed) / safe_equity
     open_risk = (portfolio.open_risk + proposed.estimated_loss_at_stop) / safe_equity
