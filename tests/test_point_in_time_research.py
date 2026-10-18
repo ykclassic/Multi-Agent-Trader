@@ -142,6 +142,11 @@ class WalkForwardTests(unittest.TestCase):
             config=config, market_type="crypto")
         self.assertEqual(first.run_hash, second.run_hash)
         self.assertEqual(first.summary, second.summary)
+        different_strategy = walk_forward_evaluate(
+            candles, timeframe_seconds=3600, fit_strategy=fitter, config=config,
+            market_type="crypto", strategy_id="alternate_baseline_v2",
+        )
+        self.assertNotEqual(first.run_hash, different_strategy.run_hash)
         self.assertGreaterEqual(len(first.folds), 3)
         self.assertTrue(all(size == 80 for size in fit_sizes))
         self.assertTrue(all(fold.test_observation_count <= 40 for fold in first.folds))
