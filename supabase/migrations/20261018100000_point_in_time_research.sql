@@ -56,6 +56,7 @@ create index if not exists portfolio_state_workspace_idx
   on public.portfolio_state_snapshots (workspace_id, as_of desc);
 alter table public.portfolio_state_snapshots enable row level security;
 revoke all privileges on table public.portfolio_state_snapshots from anon, authenticated;
+grant select on table public.portfolio_state_snapshots to authenticated;
 revoke update, delete, truncate, references, trigger on table public.portfolio_state_snapshots from service_role;
 grant select, insert on table public.portfolio_state_snapshots to service_role;
 create policy "workspace members can read portfolio state snapshots"
@@ -88,6 +89,7 @@ create index if not exists walk_forward_instrument_history_idx
   on public.walk_forward_runs (instrument_symbol, timeframe_seconds, data_start_at, data_end_at);
 alter table public.walk_forward_runs enable row level security;
 revoke all privileges on table public.walk_forward_runs from anon, authenticated;
+grant select on table public.walk_forward_runs to authenticated;
 revoke update, delete, truncate, references, trigger on table public.walk_forward_runs from service_role;
 grant select, insert on table public.walk_forward_runs to service_role;
 create policy "workspace members can read walk-forward runs"
