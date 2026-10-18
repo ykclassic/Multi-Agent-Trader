@@ -77,11 +77,11 @@ The JSON document must contain `portfolio_id`, `workspace_id`, timezone-aware `a
 The research migration adds `get_point_in_time_market_candles`, which selects each candle revision only if it was observed by the candle's close plus a bounded ingestion allowance. Later corrections are excluded. The runner stores reproducible run hashes, out-of-sample fold metrics, and condition-stratified results.
 
 ```bash
-python -m scripts.run_walk_forward_research \\
-  --workspace-id WORKSPACE_UUID \\
-  --instrument-id INSTRUMENT_UUID \\
-  --symbol BTC/USDT --asset-class crypto \\
-  --timeframe-seconds 300 \\
+python -m scripts.run_walk_forward_research \
+  --workspace-id WORKSPACE_UUID \
+  --instrument-id INSTRUMENT_UUID \
+  --symbol BTC/USDT --asset-class crypto \
+  --timeframe-seconds 300 \
   --start 2026-01-01T00:00:00Z --end 2026-10-01T00:00:00Z
 ```
 
@@ -90,3 +90,17 @@ Tune train/test windows and fee/slippage assumptions for the instrument and time
 Condition buckets include bull, bear, high volatility, and `liquidity_shock_proxy`. The latter uses price-return and volume spikes only; it is **not** a true liquidity-shock label. True liquidity analysis requires point-in-time spread, order-book depth, and/or market-impact data, which is not yet ingested. The currently stored live-ingestion history is too short to establish robust bull/bear/liquidity-shock calibration. Historical backfills observed today are intentionally excluded from strict point-in-time replay unless their revisions were originally observed within the allowed candle-close window.
 
 These reports are research evidence, not automatic threshold promotion. Risk limits remain unchanged until out-of-sample coverage, sensitivity analysis, and independent review support a deliberate policy change. Live and paper execution remain disabled.
+
+
+## Empirical risk-threshold sensitivity
+
+The calibration utility compares conservative, baseline, and less-restrictive research-only limit candidates against observed point-in-time portfolio snapshots and the exposures recorded in those snapshots. It reports acceptance rates and rejection reasons; it does **not** optimize profitability, choose a winner, or modify the active risk policy.
+
+```bash
+python -m scripts.calibrate_risk_thresholds \
+  --workspace-id WORKSPACE_UUID \
+  --start 2026-01-01T00:00:00Z --end 2026-10-01T00:00:00Z \
+  --min-samples 50
+```
+
+Reports are persisted as immutable `risk_calibration_runs`. Candidate reports remain `insufficient_data` until the minimum number of historical position/snapshot scenarios and at least two distinct snapshots are available. The current ingestion history is not enough to calibrate production risk thresholds; use a longer, point-in-time history and independently review the candidate sensitivity before any policy change.
