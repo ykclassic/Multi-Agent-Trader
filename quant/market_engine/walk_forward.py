@@ -194,7 +194,8 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
                           fit_strategy: StrategyFitter,
                           config: WalkForwardConfig = WalkForwardConfig(),
                           market_type: str = "crypto",
-                          forex_calendar: ForexSessionCalendar | None = None) -> WalkForwardResult:
+                          forex_calendar: ForexSessionCalendar | None = None,
+                          strategy_id: str = "custom") -> WalkForwardResult:
     """Fit only on each training window and evaluate on disjoint future returns.
 
     Predictor input ends at the decision candle. The scored return is the next
@@ -206,6 +207,8 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
         raise ValueError("timeframe_seconds must be positive")
     if market_type not in ("crypto", "forex"):
         raise ValueError("market_type must be crypto or forex")
+    if not strategy_id.strip() or len(strategy_id) > 100:
+        raise ValueError("strategy_id must contain 1-100 characters")
     for candle in candles:
         candle.validate()
     timestamps = [c.timestamp.astimezone(timezone.utc) for c in candles]
@@ -307,8 +310,8 @@ def walk_forward_evaluate(candles: Sequence[Candle], *, timeframe_seconds: int,
     metrics["condition_coverage_count"] = float(sum(condition_counts.get(label, 0) >= config.min_observations_per_condition for label in required))
     status: Literal["completed", "insufficient_data"] = "completed" if not coverage_gaps else "insufficient_data"
     fingerprint = {
-        "algorithm_version": ALGORITHM_VERSION, "config": asdict(config),
-        "timeframe_seconds": timeframe_seconds, "market_type": market_type,
+        "algorithm_version": ALGORITHM_VERSION, "strategy_id": strategy_id,
+        "config": asdict(config), "timeframe_seconds": timeframe_seconds, "market_type": market_type,
         "candles": [[ts.isoformat(), c.open, c.high, c.low, c.close, c.volume]
                     for ts, c in zip(timestamps, candles)],
     }
