@@ -78,6 +78,8 @@ def evaluate_portfolio_risk(portfolio: PortfolioRiskState, proposed: ProposedExp
         reasons.append("non_finite_risk_input")
     if portfolio.equity <= 0 or portfolio.peak_equity <= 0:
         reasons.append("invalid_equity")
+    elif portfolio.peak_equity < portfolio.equity:
+        reasons.append("peak_equity_below_current_equity")
     if min(portfolio.gross_notional, portfolio.open_risk, portfolio.largest_position_notional,
            proposed.notional, proposed.estimated_loss_at_stop) < 0:
         reasons.append("negative_exposure_or_risk")
