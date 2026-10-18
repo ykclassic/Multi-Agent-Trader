@@ -29,6 +29,7 @@ class MarketDataProviderTests(unittest.IsolatedAsyncioTestCase):
         candles = await provider.fetch_ohlcv(request)
         self.assertEqual(len(candles), 2)
         self.assertEqual(candles[0].close, 103.0)
+        self.assertEqual(client.calls[0][0], "https://data-api.binance.vision/api/v3/klines")
         self.assertEqual(client.calls[0][1]["symbol"], "BTCUSDT")
         self.assertEqual(client.calls[0][1]["interval"], "1h")
         self.assertEqual(candles[0].timestamp.tzinfo, timezone.utc)

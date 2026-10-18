@@ -151,7 +151,7 @@ class BinanceSpotProvider:
     """Public Binance spot klines; the BTC/USD mappings below are USDT proxies."""
 
     source_id = "binance_spot_klines"
-    endpoint = "https://api.binance.com/api/v3/klines"
+    endpoint = "https://data-api.binance.vision/api/v3/klines"
 
     def __init__(self, *, client: JsonClient | None = None,
                  symbol_map: Mapping[str, str] | None = None, clock=None) -> None:
