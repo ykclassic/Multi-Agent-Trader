@@ -46,7 +46,7 @@ function stamp(value: string | null | undefined) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString().replace("T", " ").replace(".000Z", " UTC").replace("Z", " UTC");
 }
 
-function pretty(value: unknown) {
+function safeSourceUrl(value: string | null) {\n  if (!value) return null;\n  try {\n    const parsed = new URL(value);\n    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null;\n  } catch {\n    return null;\n  }\n}\n\nfunction pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
 }
 
@@ -142,7 +142,7 @@ export default async function ResearchPage() {
             </div>
             <p>{item.claim}</p>
             <p><strong>Source:</strong> {item.source} {item.source_version}</p>
-            {item.source_uri ? <p><a href={item.source_uri} target="_blank" rel="noreferrer">Open source</a></p> : null}
+            {safeSourceUrl(item.source_uri) ? <p><a href={safeSourceUrl(item.source_uri)!} target="_blank" rel="noreferrer">Open source</a></p> : null}
             <p className="muted">Occurred: {stamp(item.occurred_at)} · Published: {stamp(item.published_at)} · Received: {stamp(item.received_at)}</p>
             <p className="muted">Freshness: {item.freshness_ms === null ? "Not recorded" : `${item.freshness_ms} ms`} · Quality: {item.quality_score === null ? "Not recorded" : item.quality_score}</p>
             <details><summary>Value and integrity</summary><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{pretty(item.value)}</pre><p>Content hash: <code>{item.content_hash}</code></p></details>
