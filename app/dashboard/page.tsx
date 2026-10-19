@@ -28,6 +28,7 @@ export default async function DashboardPage() {
       <nav>
         <strong>Multi-Agent Trader</strong>
         <Link href="/strategies">Strategies</Link>
+        <Link href="/research">Research Desk</Link>
         <span style={{ marginLeft: "auto" }} className="muted">{user.email}</span>
         <form action={signOut}><button type="submit">Sign out</button></form>
       </nav>
@@ -51,6 +52,11 @@ export default async function DashboardPage() {
             </tr>
           ))}</tbody>
         </table>
+      </section>
+      <section className="card">
+        <h2>Research Desk</h2>
+        <p className="muted">Inspect point-in-time run history, condition coverage, insufficient-data reasons and evidence provenance.</p>
+        <Link href="/research">Open Research Desk →</Link>
       </section>
       <section className="card">
         <h2>Strategy lifecycle</h2>
