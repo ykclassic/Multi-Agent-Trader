@@ -18,11 +18,11 @@ grant select, insert, update on table public.portfolios to authenticated;
 grant select, insert, update on table public.portfolios to service_role;
 create policy "workspace members can read portfolios" on public.portfolios
   for select to authenticated using ((select private.is_workspace_member(workspace_id)));
-create policy "workspace editors can create portfolios" on public.portfolios
-  for insert to authenticated with check ((select private.is_workspace_editor(workspace_id)));
-create policy "workspace editors can update portfolios" on public.portfolios
-  for update to authenticated using ((select private.is_workspace_editor(workspace_id)))
-  with check ((select private.is_workspace_editor(workspace_id)));
+create policy "workspace traders can create portfolios" on public.portfolios
+  for insert to authenticated with check ((select private.can_trade_workspace(workspace_id)));
+create policy "workspace traders can update portfolios" on public.portfolios
+  for update to authenticated using ((select private.can_trade_workspace(workspace_id)))
+  with check ((select private.can_trade_workspace(workspace_id)));
 
 create table if not exists public.portfolio_state_snapshots (
   id uuid primary key default gen_random_uuid(),
