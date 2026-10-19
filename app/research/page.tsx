@@ -46,7 +46,17 @@ function stamp(value: string | null | undefined) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString().replace("T", " ").replace(".000Z", " UTC").replace("Z", " UTC");
 }
 
-function safeSourceUrl(value: string | null) {\n  if (!value) return null;\n  try {\n    const parsed = new URL(value);\n    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null;\n  } catch {\n    return null;\n  }\n}\n\nfunction pretty(value: unknown) {
+function safeSourceUrl(value: string | null) {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
 }
 
