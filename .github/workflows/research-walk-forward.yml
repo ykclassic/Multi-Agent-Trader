@@ -1,0 +1,76 @@
+name: Scheduled Point-in-Time Walk-Forward Research
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "quant/market_engine/walk_forward.py"
+      - "quant/market_engine/research_persistence.py"
+      - "scripts/run_walk_forward_research.py"
+      - ".github/workflows/research-walk-forward.yml"
+  schedule:
+    - cron: "25 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: point-in-time-walk-forward
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - symbol: "BTC/USDT"
+            instrument_id: "24c2d4f4-3596-4547-938b-3557775b3180"
+            asset_class: "crypto"
+            timeframe_seconds: "300"
+          - symbol: "ETH/USDT"
+            instrument_id: "c473c82a-6235-4056-b1ca-9f6bc8446be2"
+            asset_class: "crypto"
+            timeframe_seconds: "300"
+          - symbol: "EUR/USD"
+            instrument_id: "f3714055-dd47-4c25-88f8-ba625ecdcf1c"
+            asset_class: "forex"
+            timeframe_seconds: "3600"
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FOREX_CALENDAR_CONFIRMED: ${{ vars.FOREX_CALENDAR_CONFIRMED || 'false' }}
+      FOREX_HOLIDAYS: ${{ vars.FOREX_HOLIDAYS || '' }}
+      FOREX_EARLY_CLOSES: ${{ vars.FOREX_EARLY_CLOSES || '' }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Evaluate point-in-time history
+        env:
+          WORKSPACE_ID: "ff037ef9-4218-4ba5-a6b8-ee0de2b3b152"
+          SYMBOL: ${{ matrix.symbol }}
+          INSTRUMENT_ID: ${{ matrix.instrument_id }}
+          ASSET_CLASS: ${{ matrix.asset_class }}
+          TIMEFRAME_SECONDS: ${{ matrix.timeframe_seconds }}
+        run: |
+          START_AT="$(date -u -d '14 days ago' '+%Y-%m-%dT%H:%M:%SZ')"
+          END_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          python -m scripts.run_walk_forward_research \
+            --workspace-id "$WORKSPACE_ID" \
+            --instrument-id "$INSTRUMENT_ID" \
+            --symbol "$SYMBOL" \
+            --asset-class "$ASSET_CLASS" \
+            --timeframe-seconds "$TIMEFRAME_SECONDS" \
+            --start "$START_AT" --end "$END_AT" \
+            --train-window-candles 100 \
+            --test-window-candles 50 \
+            --step-candles 50 \
+            --min-folds 3 \
+            --min-observations-per-condition 10 \
+            --fee-bps 5 --slippage-bps 2
